@@ -169,7 +169,9 @@ if (`$launch.Headless) { `$env:WINUTIL_HEADLESS_CHILD = '1' }
 if (`$launch.ScriptPath) {
     & `$launch.ScriptPath @invokeParameters
 } else {
-    `$remoteScript = [ScriptBlock]::Create((Invoke-RestMethod 'https://github.com/ChrisTitusTech/winutil/releases/latest/download/winutil.ps1'))
+    # Arabic build: fetch this fork's script and decode it as UTF-8 so the Arabic text survives
+    `$remoteBytes = (New-Object Net.WebClient).DownloadData('https://raw.githubusercontent.com/wasv3zo-cloud/2219was/release/winutil.ps1')
+    `$remoteScript = [ScriptBlock]::Create([Text.Encoding]::UTF8.GetString(`$remoteBytes).TrimStart([char]0xFEFF))
     & `$remoteScript @invokeParameters
 }
 "@

