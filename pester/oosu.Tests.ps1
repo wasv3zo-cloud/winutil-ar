@@ -1,4 +1,4 @@
-#===========================================================================
+﻿#===========================================================================
 # Tests - O&O ShutUp10++ Download Workflow
 #===========================================================================
 
@@ -96,10 +96,10 @@ Describe "Invoke-WPFOOSU" {
         & $script:capturedJob.ScriptBlock @jobParameters
 
         Should -Invoke Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Downloading O&O ShutUp10++ (35%)" -and $Percent -eq 35
+            $Status -eq "جارٍ تنزيل O&O ShutUp10++ (35%)" -and $Percent -eq 35
         }
         Should -Invoke Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Launching O&O ShutUp10++" -and $Percent -eq 100
+            $Status -eq "جارٍ تشغيل O&O ShutUp10++" -and $Percent -eq 100
         }
         Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter {
             $FilePath -eq (Join-Path $TestDrive "ooshutup10.exe")

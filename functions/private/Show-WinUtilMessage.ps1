@@ -36,6 +36,8 @@ function Show-WinUtilMessage {
     } -ScriptBlock {
         param($Message, $Title, $Button, $Icon)
 
-        [System.Windows.MessageBox]::Show($Message, $Title, $Button, $Icon)
+        # Arabic interface: read the message right to left and align it to the right
+        $rtlOptions = [System.Windows.MessageBoxOptions]::RtlReading -bor [System.Windows.MessageBoxOptions]::RightAlign
+        [System.Windows.MessageBox]::Show($Message, $Title, $Button, $Icon, [System.Windows.MessageBoxResult]::None, $rtlOptions)
     }
 }

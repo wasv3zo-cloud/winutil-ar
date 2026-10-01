@@ -1,4 +1,4 @@
-#===========================================================================
+﻿#===========================================================================
 # Tests - Win11 Creator
 
 Describe "Win11 Creator setup media" {
@@ -363,10 +363,10 @@ Describe "Win11 Creator setup media" {
     It "blocks oversized install.esd before USB erase confirmation" {
         $script:writeUsbFunction | Should -Match ([regex]::Escape('$installEsd = Join-Path $contentsDir "sources\install.esd"'))
         $script:writeUsbFunction | Should -Match ([regex]::Escape('$esdSizeBytes -ge 4GB'))
-        $script:writeUsbFunction | Should -Match 'install\.esd file'
+        $script:writeUsbFunction | Should -Match 'ملف install\.esd'
 
         $guardIndex = $script:writeUsbFunction.IndexOf('$installEsd = Join-Path $contentsDir "sources\install.esd"')
-        $confirmationIndex = $script:writeUsbFunction.IndexOf('Confirm USB Erase')
+        $confirmationIndex = $script:writeUsbFunction.IndexOf('تأكيد مسح وحدة USB')
         $guardIndex | Should -BeGreaterThan -1
         $confirmationIndex | Should -BeGreaterThan $guardIndex
     }
@@ -1102,7 +1102,7 @@ Describe "Win11 Creator setup media" {
             '$env:ProgramFiles\WinGet\Links\oscdimg.exe',
             'install -e --id Microsoft.OSCDIMG --accept-package-agreements --accept-source-agreements',
             'oscdimg.exe still not found after install attempt.',
-            'oscdimg Not Found'
+            'لم يُعثر على oscdimg'
         )) {
             $content | Should -Match ([regex]::Escape($expectedText))
         }
@@ -1112,7 +1112,7 @@ Describe "Win11 Creator setup media" {
 
         # The export job stops at the dialog instead of running oscdimg without a binary
         $exportOscdimgIndex = $script:exportFunction.IndexOf('$oscdimg = Get-WinUtilOscdimgPath')
-        $exportDialogIndex = $script:exportFunction.IndexOf('oscdimg Not Found', $exportOscdimgIndex)
+        $exportDialogIndex = $script:exportFunction.IndexOf('لم يُعثر على oscdimg', $exportOscdimgIndex)
         $exportRunIndex = $script:exportFunction.IndexOf('Running oscdimg...', $exportOscdimgIndex)
 
         $exportOscdimgIndex | Should -BeGreaterThan -1

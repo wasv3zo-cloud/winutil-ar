@@ -1,4 +1,4 @@
-function Install-WinUtilProgramChoco {
+﻿function Install-WinUtilProgramChoco {
     <#
 
     .SYNOPSIS
@@ -55,7 +55,7 @@ function Install-WinUtilProgramChoco {
         $index++
         if ($ProgressSpan -gt 0 -and $total -gt 0) {
             $percent = $ProgressBase + [int]((($index - 1) / $total) * $ProgressSpan)
-            Step-WinUtilJob -Status "$Action $program ($index/$total)" -Percent $percent
+            Step-WinUtilJob -Status "$(@{ Install = "جارٍ تثبيت"; Uninstall = "جارٍ إلغاء تثبيت"; Upgrade = "جارٍ تحديث" }[$Action]) $program ($index/$total)" -Percent $percent
         }
 
         Write-WinUtilLog -Component "Package" -Message "$Action choco package: $program"
@@ -101,7 +101,7 @@ function Install-WinUtilProgramChoco {
         }
 
         if ($ProgressSpan -gt 0 -and $total -gt 0) {
-            Step-WinUtilJob -Status "$Action $program ($index/$total)" -Percent ($ProgressBase + [int](($index / $total) * $ProgressSpan))
+            Step-WinUtilJob -Status "$(@{ Install = "جارٍ تثبيت"; Uninstall = "جارٍ إلغاء تثبيت"; Upgrade = "جارٍ تحديث" }[$Action]) $program ($index/$total)" -Percent ($ProgressBase + [int](($index / $total) * $ProgressSpan))
         }
 
         [pscustomobject]@{

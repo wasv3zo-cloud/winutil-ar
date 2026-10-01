@@ -1,4 +1,4 @@
-function Invoke-WPFUnInstall {
+﻿function Invoke-WPFUnInstall {
     param(
         [Parameter(Mandatory=$false)]
         [PSObject[]]$PackagesToUninstall = $($sync.selectedApps | Foreach-Object { $sync.configs.applicationsHashtable.$_ })
@@ -10,14 +10,14 @@ function Invoke-WPFUnInstall {
     #>
 
     if ($PackagesToUninstall.Count -eq 0) {
-        $WarningMsg = "Please select the program(s) to uninstall"
+        $WarningMsg = "يرجى تحديد البرامج التي تريد إلغاء تثبيتها"
         Show-WinUtilMessage -Message $WarningMsg -Title "WinUtil" -Button "OK" -Icon "Warning"
         return
     }
 
     $ButtonType = "YesNo"
-    $MessageboxTitle = "Are you sure?"
-    $Messageboxbody = ("This will uninstall the following applications: `n $($PackagesToUninstall | Select-Object Name, Description| Out-String)")
+    $MessageboxTitle = "هل أنت متأكد؟"
+    $Messageboxbody = ("سيتم إلغاء تثبيت التطبيقات التالية: `n $($PackagesToUninstall | Select-Object Name, Description| Out-String)")
     $MessageIcon = "Information"
 
     $confirm = Show-WinUtilMessage -Message $Messageboxbody -Title $MessageboxTitle -Button $ButtonType -Icon $MessageIcon
@@ -29,7 +29,7 @@ function Invoke-WPFUnInstall {
     $packageSummary = Get-WinUtilPackageLogSummary -Packages $PackagesToUninstall -Preference $ManagerPreference
     Write-WinUtilLog -Component "Uninstall" -Message "Uninstall selected package(s): $($packageSummary -join '; ')"
 
-    Start-WinUtilJob -Name "Uninstall" -Description "Uninstalling apps" -DisableAppList -Parameters @{
+    Start-WinUtilJob -Name "Uninstall" -Description "إلغاء تثبيت التطبيقات" -DisableAppList -Parameters @{
         PackagesToUninstall = $PackagesToUninstall
         ManagerPreference = $ManagerPreference
     } -ScriptBlock {
@@ -51,19 +51,19 @@ function Invoke-WPFUnInstall {
         if ($packagesWinget.Count -gt 0) {
             foreach ($program in $packagesWinget) {
                 $position = $completedPackages + 1
-                Step-WinUtilJob -Status "Uninstalling $program ($position/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
+                Step-WinUtilJob -Status "جارٍ إلغاء تثبيت $program ($position/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
 
                 $results += Measure-WinUtilStep -Scope "Uninstall" -Name "winget $program" -ScriptBlock {
                     Install-WinUtilProgramWinget -Action Uninstall -Programs @($program)
                 }
                 $completedPackages++
-                Step-WinUtilJob -Status "Uninstalled $program ($completedPackages/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
+                Step-WinUtilJob -Status "تم إلغاء تثبيت $program ($completedPackages/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
             }
         }
 
         if ($packagesChoco.Count -gt 0) {
             $position = $completedPackages + 1
-            Step-WinUtilJob -Status "Uninstalling Chocolatey packages ($position/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
+            Step-WinUtilJob -Status "جارٍ إلغاء تثبيت حزم Chocolatey ($position/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
 
             $chocoBase = [int](($completedPackages / $totalPackages) * 100)
             $chocoSpan = [int]((@($packagesChoco).Count / $totalPackages) * 100)
@@ -71,7 +71,7 @@ function Invoke-WPFUnInstall {
                 Install-WinUtilProgramChoco -Action Uninstall -Programs $packagesChoco -ProgressBase $chocoBase -ProgressSpan $chocoSpan
             }
             $completedPackages += @($packagesChoco).Count
-            Step-WinUtilJob -Status "Uninstalled Chocolatey packages ($completedPackages/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
+            Step-WinUtilJob -Status "تم إلغاء تثبيت حزم Chocolatey ($completedPackages/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
         }
 
         Complete-WinUtilPackageRun -Action "Uninstall" -Results $results

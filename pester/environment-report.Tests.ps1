@@ -1,4 +1,4 @@
-#===========================================================================
+﻿#===========================================================================
 # Tests - Environment Report
 #===========================================================================
 
@@ -198,7 +198,7 @@ Describe "Invoke-WPFExportEnvironmentReport overwrite protection" {
     It "aborts rather than retaining a stale companion when logs are excluded" {
         $source = Get-Content -LiteralPath (Join-Path $script:repoRoot "functions\public\Invoke-WPFExportEnvironmentReport.ps1") -Raw
 
-        $source | Should -Match 'if \(-not \$includeLogs\) \{[\s\S]*Choose another report filename[\s\S]*return'
+        $source | Should -Match 'if \(-not \$includeLogs\) \{[\s\S]*اختر اسمًا آخر للتقرير[\s\S]*return'
         $source | Should -Match 'if \(-not \$replaceLogs\) \{\s*return\s*\}'
     }
 }

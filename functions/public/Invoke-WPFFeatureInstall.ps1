@@ -1,4 +1,4 @@
-function Invoke-WPFFeatureInstall {
+﻿function Invoke-WPFFeatureInstall {
     <#
 
     .SYNOPSIS
@@ -7,11 +7,11 @@ function Invoke-WPFFeatureInstall {
     #>
 
     if ($null -eq $sync.selectedFeatures -or $sync.selectedFeatures.Count -eq 0) {
-        Show-WinUtilMessage -Message "No Windows Feature selected" -Title "WinUtil" -Button "OK" -Icon "Warning"
+        Show-WinUtilMessage -Message "لم تحدد أي ميزة من ميزات ويندوز" -Title "WinUtil" -Button "OK" -Icon "Warning"
         return
     }
 
-    Start-WinUtilJob -Name "Features" -Description "Installing Windows features" -Parameters @{
+    Start-WinUtilJob -Name "Features" -Description "تثبيت ميزات ويندوز" -Parameters @{
         Features = @($sync.selectedFeatures)
     } -ScriptBlock {
         param($Features)
@@ -21,11 +21,11 @@ function Invoke-WPFFeatureInstall {
 
         foreach ($feature in $Features) {
             $completed++
-            Step-WinUtilJob -Status "Installing $feature ($completed/$total)" -Percent ([int]((($completed - 1) / $total) * 100))
+            Step-WinUtilJob -Status "جارٍ تثبيت $feature ($completed/$total)" -Percent ([int]((($completed - 1) / $total) * 100))
             Measure-WinUtilStep -Scope "Features" -Name $feature -ScriptBlock {
                 Invoke-WinUtilFeatureInstall $feature
             }
-            Step-WinUtilJob -Status "Installed $feature ($completed/$total)" -Percent ([int](($completed / $total) * 100))
+            Step-WinUtilJob -Status "تم تثبيت $feature ($completed/$total)" -Percent ([int](($completed / $total) * 100))
         }
 
         Write-Host "A reboot may be required."

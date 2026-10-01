@@ -1,4 +1,4 @@
-function Start-WinUtilUserInterface {
+﻿function Start-WinUtilUserInterface {
     <#
         .SYNOPSIS
             Builds the WinUtil window, wires its event handlers and runs it to completion
@@ -285,7 +285,7 @@ function Start-WinUtilUserInterface {
             # Disable the install tab
             $sync.WPFTab1BT.IsEnabled = $false
             $sync.WPFTab1BT.Opacity = 0.5
-            $sync.WPFTab1BT.ToolTip = "Internet connection required for installing applications."
+            $sync.WPFTab1BT.ToolTip = "يلزم الاتصال بالإنترنت لتثبيت التطبيقات."
 
             # The install action buttons are generated with the Install tab, so
             # Initialize-WinUtilInstallTabControls disables them when that tab is built
@@ -421,13 +421,13 @@ function Start-WinUtilUserInterface {
         Invoke-WPFPopup -Action "Hide" -Popups @("Settings")
 
         $authorInfo = @"
-Author   : <a href="https://github.com/ChrisTitusTech">@ChrisTitusTech</a>
-UI       : <a href="https://github.com/MyDrift-user">@MyDrift-user</a>, <a href="https://github.com/Marterich">@Marterich</a>
-Runspace : <a href="https://github.com/DeveloperDurp">@DeveloperDurp</a>, <a href="https://github.com/Marterich">@Marterich</a>
-GitHub   : <a href="https://github.com/ChrisTitusTech/winutil">ChrisTitusTech/winutil</a>
-Version  : <a href="https://github.com/ChrisTitusTech/winutil/releases/tag/$($sync.version)">$($sync.version)</a>
+المؤلف       : <a href="https://github.com/ChrisTitusTech">@ChrisTitusTech</a>
+الواجهة      : <a href="https://github.com/MyDrift-user">@MyDrift-user</a>, <a href="https://github.com/Marterich">@Marterich</a>
+التشغيل المتوازي : <a href="https://github.com/DeveloperDurp">@DeveloperDurp</a>, <a href="https://github.com/Marterich">@Marterich</a>
+GitHub       : <a href="https://github.com/ChrisTitusTech/winutil">ChrisTitusTech/winutil</a>
+الإصدار      : <a href="https://github.com/ChrisTitusTech/winutil/releases/tag/$($sync.version)">$($sync.version)</a>
 "@
-        Show-CustomDialog -Title "About" -Message $authorInfo
+        Show-CustomDialog -Title "حول" -Message $authorInfo
     })
     $sync["DocumentationMenuItem"].Add_Click({
         Invoke-WPFPopup -Action "Hide" -Popups @("Settings")
@@ -437,7 +437,7 @@ Version  : <a href="https://github.com/ChrisTitusTech/winutil/releases/tag/$($sy
         Invoke-WPFPopup -Action "Hide" -Popups @("Settings")
 
         $authorInfo = @"
-<a href="https://github.com/sponsors/ChrisTitusTech">Current sponsors for ChrisTitusTech:</a>
+<a href="https://github.com/sponsors/ChrisTitusTech">الداعمون الحاليون لـ ChrisTitusTech:</a>
 "@
         $authorInfo += "`n"
         try {
@@ -446,9 +446,9 @@ Version  : <a href="https://github.com/ChrisTitusTech/winutil/releases/tag/$($sy
                 $authorInfo += "<a href=`"https://github.com/sponsors/ChrisTitusTech`">$sponsor</a>`n"
             }
         } catch {
-            $authorInfo += "An error occurred while fetching or processing the sponsors: $_`n"
+            $authorInfo += "حدث خطأ أثناء جلب قائمة الداعمين أو معالجتها: $_`n"
         }
-        Show-CustomDialog -Title "Sponsors" -Message $authorInfo -EnableScroll $true
+        Show-CustomDialog -Title "الداعمون" -Message $authorInfo -EnableScroll $true
     })
 
     # Font Scaling Event Handlers

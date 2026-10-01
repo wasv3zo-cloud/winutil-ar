@@ -1,4 +1,4 @@
-function Invoke-WPFInstallUpgrade {
+﻿function Invoke-WPFInstallUpgrade {
     <#
 
     .SYNOPSIS
@@ -13,11 +13,11 @@ function Invoke-WPFInstallUpgrade {
     # The radio button belongs to the interface thread; this body runs on a worker. The
     # preference it maintains carries the same answer and is what every other workflow reads.
     if ($sync.preferences.packagemanager -eq "Choco") {
-        Step-WinUtilJob -Status "Preparing Chocolatey" -State "Indeterminate"
+        Step-WinUtilJob -Status "جارٍ تجهيز Chocolatey" -State "Indeterminate"
         Install-WinUtilChoco
 
         Write-WinUtilLog -Component "Install" -Message "Upgrading all Chocolatey packages."
-        Step-WinUtilJob -Status "Upgrading all Chocolatey packages" -State "Indeterminate"
+        Step-WinUtilJob -Status "جارٍ تحديث جميع حزم Chocolatey" -State "Indeterminate"
 
         # "all" is choco's own name for every installed package, so this stays one call
         $result = Measure-WinUtilStep -Scope "Install" -Name "choco upgrade all" -ScriptBlock {
@@ -27,11 +27,11 @@ function Invoke-WPFInstallUpgrade {
         return
     }
 
-    Step-WinUtilJob -Status "Preparing WinGet" -State "Indeterminate"
+    Step-WinUtilJob -Status "جارٍ تجهيز WinGet" -State "Indeterminate"
     Install-WinUtilWinget
 
     Write-WinUtilLog -Component "Install" -Message "Upgrading all WinGet packages."
-    Step-WinUtilJob -Status "Upgrading all WinGet packages" -State "Indeterminate"
+    Step-WinUtilJob -Status "جارٍ تحديث جميع حزم WinGet" -State "Indeterminate"
 
     # Let WinGet resolve every package against its recorded source. Parsing its localized,
     # width-truncated table loses identifiers and source information.

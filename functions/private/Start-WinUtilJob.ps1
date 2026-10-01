@@ -1,4 +1,4 @@
-function Start-WinUtilJob {
+﻿function Start-WinUtilJob {
     <#
         .SYNOPSIS
             Runs a long operation off the UI thread with the shared progress, taskbar, log and
@@ -29,7 +29,7 @@ function Start-WinUtilJob {
         .EXAMPLE
             Start-WinUtilJob -Name "Install" -Parameters @{ Packages = $packages } -ScriptBlock {
                 param($Packages)
-                Step-WinUtilJob -Status "Installing" -Percent 10
+                Step-WinUtilJob -Status "جارٍ التثبيت" -Percent 10
             }
     #>
     param(
@@ -78,7 +78,7 @@ function Start-WinUtilJob {
     }
 
     if ($blockedBy) {
-        Show-WinUtilMessage -Message "$blockedBy is still running. Wait for it to finish before starting another action." -Title "WinUtil" -Button "OK" -Icon "Warning" | Out-Null
+        Show-WinUtilMessage -Message "$blockedBy ما زال قيد التشغيل. انتظر حتى ينتهي قبل بدء إجراء آخر." -Title "WinUtil" -Button "OK" -Icon "Warning" | Out-Null
         return $null
     }
 
@@ -141,15 +141,15 @@ function Start-WinUtilJob {
             if ($newErrors -gt 0) {
                 Write-WinUtilLog -Level "WARN" -Component $JobName -Message "$JobName job finished in $($jobClock.ElapsedMilliseconds) ms with $newErrors error(s)."
                 Write-WinUtilJobBanner -Message "$JobLabel finished with $newErrors error(s), see the log" -Level "ERROR"
-                Step-WinUtilJob -Status "$JobName finished with $newErrors error(s)" -Percent 100 -State "Paused" -Overlay "warning"
+                Step-WinUtilJob -Status "انتهت عملية: $JobName مع $newErrors خطأ" -Percent 100 -State "Paused" -Overlay "warning"
             } elseif ($newWarnings -gt 0) {
                 Write-WinUtilLog -Level "WARN" -Component $JobName -Message "$JobName job finished in $($jobClock.ElapsedMilliseconds) ms with $newWarnings warning(s)."
                 Write-WinUtilJobBanner -Message "$JobLabel finished with $newWarnings warning(s), see the log"
-                Step-WinUtilJob -Status "$JobName finished with $newWarnings warning(s)" -Percent 100 -State "Paused" -Overlay "warning"
+                Step-WinUtilJob -Status "انتهت عملية: $JobName مع $newWarnings تحذير" -Percent 100 -State "Paused" -Overlay "warning"
             } else {
                 Write-WinUtilLog -Component $JobName -Message "$JobName job finished in $($jobClock.ElapsedMilliseconds) ms."
                 Write-WinUtilJobBanner -Message "$JobLabel finished"
-                Step-WinUtilJob -Status "$JobName finished" -Percent 100 -State "None" -Overlay "checkmark"
+                Step-WinUtilJob -Status "انتهت عملية: $JobName" -Percent 100 -State "None" -Overlay "checkmark"
             }
         } catch {
             $jobClock.Stop()
@@ -158,7 +158,7 @@ function Start-WinUtilJob {
             $errorAlreadyReported = $_.Exception.Data["WinUtilErrorReported"] -eq $true
             Write-WinUtilErrorRecord -ErrorRecord $_ -Component $JobName -Context "$JobName failed after $($jobClock.ElapsedMilliseconds) ms" -DetailOnly:$errorAlreadyReported
             Write-WinUtilJobBanner -Message "$JobLabel failed: $($_.Exception.Message)" -Level "ERROR"
-            Step-WinUtilJob -Status "$JobName failed" -Percent 100 -State "Error" -Overlay "warning"
+            Step-WinUtilJob -Status "فشلت عملية: $JobName" -Percent 100 -State "Error" -Overlay "warning"
         } finally {
             $jobResult = [pscustomobject]@{
                 Token = $JobToken
@@ -212,7 +212,7 @@ function Start-WinUtilJob {
             Write-WinUtilErrorRecord -ErrorRecord $scheduleError -Component $Name -Context "Could not schedule $Name"
             $sync.LastJobResult = [pscustomobject]@{ Token = $jobToken; Errors = 1; Warnings = 0 }
             Write-WinUtilJobBanner -Message "$label could not start" -Level "ERROR"
-            Step-WinUtilJob -Status "$Name could not start" -Percent 100 -State "Error" -Overlay "warning"
+            Step-WinUtilJob -Status "تعذّر بدء عملية: $Name" -Percent 100 -State "Error" -Overlay "warning"
         } catch {
             Write-WinUtilLog -Level "WARN" -Component $Name -Message "Could not report that $Name failed to start: $($_.Exception.Message)"
         } finally {

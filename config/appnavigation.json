@@ -1,24 +1,24 @@
 {
     "WPFInstall": {
-        "Content": "Install/Upgrade Applications",
+        "Content": "تثبيت/تحديث التطبيقات",
         "Category": "____Actions",
         "Type": "Button",
         "Order": "1",
-        "Description": "Install or upgrade the selected applications"
+        "Description": "تثبيت التطبيقات المحددة أو تحديثها"
     },
     "WPFUninstall": {
-        "Content": "Uninstall Applications",
+        "Content": "إلغاء تثبيت التطبيقات",
         "Category": "____Actions",
         "Type": "Button",
         "Order": "2",
-        "Description": "Uninstall the selected applications"
+        "Description": "إلغاء تثبيت التطبيقات المحددة"
     },
     "WPFInstallUpgrade": {
-        "Content": "Upgrade all Applications",
+        "Content": "تحديث جميع التطبيقات",
         "Category": "____Actions",
         "Type": "Button",
         "Order": "3",
-        "Description": "Upgrade all applications to the latest version"
+        "Description": "تحديث جميع التطبيقات إلى أحدث إصدار"
     },
     "WingetRadioButton": {
         "Content": "WinGet",
@@ -27,7 +27,7 @@
         "GroupName": "PackageManagerGroup",
         "Checked": true,
         "Order": "1",
-        "Description": "Use WinGet for package management"
+        "Description": "استخدام WinGet لإدارة الحزم"
     },
     "ChocoRadioButton": {
         "Content": "Chocolatey",
@@ -36,48 +36,48 @@
         "GroupName": "PackageManagerGroup",
         "Checked": false,
         "Order": "2",
-        "Description": "Use Chocolatey for package management"
+        "Description": "استخدام Chocolatey لإدارة الحزم"
     },
     "WPFCollapseAllCategories": {
-        "Content": "Collapse All Categories",
+        "Content": "طي جميع الفئات",
         "Category": "__Selection",
         "Type": "Button",
         "Order": "1",
-        "Description": "Collapse all application categories"
+        "Description": "طي جميع فئات التطبيقات"
     },
     "WPFExpandAllCategories": {
-        "Content": "Expand All Categories",
+        "Content": "توسيع جميع الفئات",
         "Category": "__Selection",
         "Type": "Button",
         "Order": "2",
-        "Description": "Expand all application categories"
+        "Description": "توسيع جميع فئات التطبيقات"
     },
     "WPFClearInstallSelection": {
-        "Content": "Clear Selection",
+        "Content": "مسح التحديد",
         "Category": "__Selection",
         "Type": "Button",
         "Order": "3",
-        "Description": "Clear the selection of applications"
+        "Description": "مسح تحديد التطبيقات"
     },
     "WPFGetInstalled": {
-        "Content": "Show Installed Apps",
+        "Content": "عرض التطبيقات المثبتة",
         "Category": "__Selection",
         "Type": "Button",
         "Order": "4",
-        "Description": "Show installed applications"
+        "Description": "عرض التطبيقات المثبتة على الجهاز"
     },
     "WPFselectedAppsButton": {
-        "Content": "Selected Apps: 0",
+        "Content": "التطبيقات المحددة: 0",
         "Category": "__Selection",
         "Type": "Button",
         "Order": "5",
-        "Description": "Show the selected applications"
+        "Description": "عرض التطبيقات المحددة"
     },
     "WPFInstallFOSSInfo": {
-        "Content": "Free and Open Source Software",
+        "Content": "البرمجيات الحرة ومفتوحة المصدر",
         "Category": "__Selection",
         "Type": "Note",
         "Order": "0",
-        "Description": "Information about the #FOSS label on application entries"
+        "Description": "معلومات عن وسم ‎#FOSS الظاهر بجانب التطبيقات"
     }
 }

@@ -1,4 +1,4 @@
-function Invoke-WPFImpex {
+﻿function Invoke-WPFImpex {
     <#
 
     .SYNOPSIS
@@ -54,8 +54,8 @@ function Invoke-WPFImpex {
                     $allConfs = ($sync.selectedApps + $sync.selectedTweaks + $sync.selectedToggles + $sync.selectedFeatures + $sync.selectedAppx) | ForEach-Object { [string]$_ }
                     if (-not $allConfs) {
                         Show-WinUtilMessage -Message (
-                            "No settings are selected to export. Please select at least one app, tweak, toggle, feature, or AppX package before exporting."
-                        ) -Title "Nothing to Export" -Button "OK" -Icon "Warning" | Out-Null
+                            "لم تحدد أي إعدادات لتصديرها. حدد تطبيقًا أو تحسينًا أو مفتاح تبديل أو ميزة أو حزمة AppX واحدة على الأقل قبل التصدير."
+                        ) -Title "لا يوجد ما يُصدَّر" -Button "OK" -Icon "Warning" | Out-Null
                         return
                     }
                     $jsonFile = $allConfs | ConvertTo-Json
@@ -109,7 +109,7 @@ function Invoke-WPFImpex {
                     }
 
                     if (-not $flattenedJson) {
-                        Show-WinUtilMessage -Message "The selected file contains no settings to import. No changes have been made." -Title "Empty Configuration" -Button "OK" -Icon "Warning" | Out-Null
+                        Show-WinUtilMessage -Message "الملف المحدد لا يحتوي على إعدادات لاستيرادها. لم تُجرَ أي تغييرات." -Title "ملف إعدادات فارغ" -Button "OK" -Icon "Warning" | Out-Null
                         return
                     }
 
@@ -130,7 +130,7 @@ function Invoke-WPFImpex {
 
                         if ($skippedSelections.Count -eq @($flattenedJson).Count) {
                             if ($sync.Form) {
-                                Show-WinUtilMessage -Message "This legacy configuration contains no settings supported by this version of WinUtil. No changes have been made." -Title "Unsupported Legacy Configuration" -Icon "Warning" | Out-Null
+                                Show-WinUtilMessage -Message "ملف الإعدادات القديم هذا لا يحتوي على إعدادات يدعمها هذا الإصدار من WinUtil. لم تُجرَ أي تغييرات." -Title "ملف إعدادات قديم غير مدعوم" -Icon "Warning" | Out-Null
                             }
                             return
                         }
@@ -138,10 +138,10 @@ function Invoke-WPFImpex {
                         if ($skippedSelections.Count -gt 0) {
                             $skippedDisplay = @($skippedSelections | Select-Object -First 10) -join ", "
                             if ($skippedSelections.Count -gt 10) {
-                                $skippedDisplay += "`n...and $($skippedSelections.Count - 10) more. See the WinUtil log for details."
+                                $skippedDisplay += "`n...و$($skippedSelections.Count - 10) أخرى. راجع سجل WinUtil للتفاصيل."
                             }
                             if ($sync.Form) {
-                                Show-WinUtilMessage -Message "Supported settings were imported. The following retired settings were skipped:`n`n$skippedDisplay" -Title "Legacy Configuration Partially Imported" -Icon "Warning" | Out-Null
+                                Show-WinUtilMessage -Message "استُوردت الإعدادات المدعومة، وتم تخطي الإعدادات المتقاعدة التالية:`n`n$skippedDisplay" -Title "استيراد جزئي لملف إعدادات قديم" -Icon "Warning" | Out-Null
                             }
                         }
                     } else {

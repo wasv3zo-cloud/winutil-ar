@@ -1,10 +1,10 @@
-function Invoke-WPFAppxInstall {
+﻿function Invoke-WPFAppxInstall {
     if ($null -eq $sync.selectedAppx -or $sync.selectedAppx.Count -eq 0) {
-        Show-WinUtilMessage -Message "No AppX Package selected" -Title "Error" -Button "OK" -Icon "Error"
+        Show-WinUtilMessage -Message "لم تحدد أي حزمة AppX" -Title "خطأ" -Button "OK" -Icon "Error"
         return
     }
 
-    Start-WinUtilJob -Name "AppX install" -Description "Installing AppX packages" -Parameters @{
+    Start-WinUtilJob -Name "AppX install" -Description "تثبيت حزم AppX" -Parameters @{
         Selected = @($sync.selectedAppx)
         Apps = $sync.configs.appxHashtable
     } -ScriptBlock {
@@ -18,16 +18,16 @@ function Invoke-WPFAppxInstall {
             $app = $Apps[$Selected[$index]]
             $position = $index + 1
 
-            Step-WinUtilJob -Status "Installing $($app.Content) ($position/$totalPackages)" -Percent ([int](($index / $totalPackages) * 100))
+            Step-WinUtilJob -Status "جارٍ تثبيت $($app.Content) ($position/$totalPackages)" -Percent ([int](($index / $totalPackages) * 100))
             Write-Host "Installing $($app.Content)"
             $appResults = @(Install-WinUtilAPPX -Name $app.PackageId -StoreId $app.StoreId)
             $results += $appResults
             $status = if (@($appResults | Where-Object Outcome -EQ "Failed").Count -gt 0) {
-                "Failed"
+                "فشل تثبيت"
             } elseif (@($appResults | Where-Object Outcome -EQ "Skipped").Count -gt 0) {
-                "Skipped"
+                "تم تخطي"
             } else {
-                "Installed"
+                "تم تثبيت"
             }
             Step-WinUtilJob -Status "$status $($app.Content) ($position/$totalPackages)" -Percent ([int](($position / $totalPackages) * 100))
         }

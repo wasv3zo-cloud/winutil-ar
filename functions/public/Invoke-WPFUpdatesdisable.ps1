@@ -1,4 +1,4 @@
-function Invoke-WPFUpdatesdisable {
+﻿function Invoke-WPFUpdatesdisable {
     <#
 
     .SYNOPSIS
@@ -59,8 +59,8 @@ function Invoke-WPFUpdatesdisable {
 
 function Confirm-WPFUpdatesdisable {
     $confirmation = Show-WinUtilMessage `
-        -Message "Disabling Windows Update stops update services, disables scheduled tasks, and clears downloaded update files. Security updates will not be installed until defaults are restored. Continue?" `
-        -Title "Disable Windows Update?" `
+        -Message "تعطيل Windows Update يوقف خدمات التحديث ويعطّل المهام المجدولة ويمسح ملفات التحديث المنزّلة. لن تُثبَّت التحديثات الأمنية حتى تستعيد الإعدادات الافتراضية. هل تريد المتابعة؟" `
+        -Title "تعطيل Windows Update؟" `
         -Button "YesNo" `
         -Icon "Warning"
 

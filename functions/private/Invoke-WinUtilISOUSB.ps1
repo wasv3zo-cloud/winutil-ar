@@ -1,4 +1,4 @@
-function Invoke-WinUtilISORefreshUSBDrives {
+﻿function Invoke-WinUtilISORefreshUSBDrives {
     $combo    = $sync["WPFWin11ISOUSBDriveComboBox"]
     $removable = @(Get-Disk | Where-Object { $_.BusType -eq "USB" } | Sort-Object Number)
 
@@ -39,7 +39,7 @@ function Invoke-WinUtilISOWriteUSB {
     $usbDisks    = $sync["Win11ISOUSBDisks"]
 
     if (-not $contentsDir -or -not (Test-Path $contentsDir)) {
-        Show-WinUtilMessage -Message "No modified ISO content found. Please run the modification step first." -Title "Not Ready" -Button "OK" -Icon "Warning" | Out-Null
+        Show-WinUtilMessage -Message "لم يُعثر على محتوى ISO معدّل. يرجى تنفيذ خطوة التعديل أولًا." -Title "غير جاهز" -Button "OK" -Icon "Warning" | Out-Null
         return
     }
 
@@ -48,7 +48,7 @@ function Invoke-WinUtilISOWriteUSB {
         $esdSizeBytes = (Get-Item $installEsd).Length
         if ($esdSizeBytes -ge 4GB) {
             $esdSizeMB = [math]::Ceiling($esdSizeBytes / 1MB)
-            Show-WinUtilMessage -Message "This ISO uses an install.esd file that is $esdSizeMB MB. WinUtil's FAT32 USB format cannot store files larger than 4 GB.`n`nExport an ISO instead or use media with install.wim." -Title "USB Creation Not Supported" -Button "OK" -Icon "Warning" | Out-Null
+            Show-WinUtilMessage -Message "ملف ISO هذا يستخدم ملف install.esd بحجم $esdSizeMB ميغابايت، وتهيئة FAT32 التي يستخدمها WinUtil لا تستوعب ملفات أكبر من 4 غيغابايت.`n`nصدّر ملف ISO بدلًا من ذلك أو استخدم وسائط تحتوي على install.wim." -Title "إنشاء وحدة USB غير مدعوم" -Button "OK" -Icon "Warning" | Out-Null
             return
         }
     }
@@ -67,31 +67,31 @@ function Invoke-WinUtilISOWriteUSB {
     }
 
     if (-not $targetDisk) {
-        Show-WinUtilMessage -Message "Please select a USB drive from the dropdown." -Title "No Drive Selected" -Button "OK" -Icon "Warning" | Out-Null
+        Show-WinUtilMessage -Message "يرجى اختيار وحدة USB من القائمة." -Title "لم تُختر وحدة" -Button "OK" -Icon "Warning" | Out-Null
         return
     }
 
     $diskNum = $targetDisk.Number
     $sizeGB  = [math]::Round($targetDisk.Size / 1GB, 1)
 
-    $confirm = Show-WinUtilMessage -Message "ALL data on Disk $diskNum ($($targetDisk.FriendlyName), $sizeGB GB) will be PERMANENTLY ERASED.`n`nAre you sure you want to continue?" -Title "Confirm USB Erase" -Button "YesNo" -Icon "Warning"
+    $confirm = Show-WinUtilMessage -Message "ستُمسح جميع البيانات على القرص $diskNum ($($targetDisk.FriendlyName)، $sizeGB غيغابايت) نهائيًا.`n`nهل أنت متأكد أنك تريد المتابعة؟" -Title "تأكيد مسح وحدة USB" -Button "YesNo" -Icon "Warning"
     if ($confirm -ne "Yes") {
         Write-WinUtilISOLog "USB write cancelled by user."
         return
     }
 
-    Start-WinUtilJob -Name "USB write" -Description "Writing USB drive" -Parameters @{
+    Start-WinUtilJob -Name "USB write" -Description "الكتابة على وحدة USB" -Parameters @{
         DiskNumber  = $diskNum
         ContentsDir = $contentsDir
     } -ScriptBlock {
         param($DiskNumber, $contentsDir)
 
         Invoke-WPFUIThread -ScriptBlock { $sync["WPFWin11ISOWriteUSBButton"].IsEnabled = $false }
-        Set-WinUtilISOStep -Step "Working" -Label "Writing the USB drive"
+        Set-WinUtilISOStep -Step "Working" -Label "جارٍ الكتابة على وحدة USB"
 
         try {
             Write-WinUtilISOLog "Starting USB write to Disk $DiskNumber..."
-            Step-WinUtilJob -Status "Formatting USB drive..." -Percent 10
+            Step-WinUtilJob -Status "جارٍ تهيئة وحدة USB..." -Percent 10
 
             # Phase 1: Clean disk via diskpart (retry once if the drive is not yet ready)
             $dpFile1 = Join-Path $env:TEMP "winutil_diskpart_$(Get-Random).txt"
@@ -144,7 +144,7 @@ function Invoke-WinUtilISOWriteUSB {
             diskpart /s $dpFile2 | Where-Object { $_ -match '\S' } | ForEach-Object { Write-WinUtilISOLog "  diskpart: $_" }
             Remove-Item $dpFile2 -Force
 
-            Step-WinUtilJob -Status "Formatting USB partition..." -Percent 25
+            Step-WinUtilJob -Status "جارٍ تهيئة قسم وحدة USB..." -Percent 25
             Start-Sleep -Seconds 3
             Update-Disk -Number $DiskNumber
 
@@ -166,7 +166,7 @@ function Invoke-WinUtilISOWriteUSB {
                 Format-Volume -FileSystem FAT32 -NewFileSystemLabel $volLabel -Force -Confirm:$false
             Write-WinUtilISOLog "Partition $($winpePart.PartitionNumber) formatted as FAT32."
 
-            Step-WinUtilJob -Status "Assigning drive letters..." -Percent 30
+            Step-WinUtilJob -Status "جارٍ تعيين أحرف الأقراص..." -Percent 30
             Start-Sleep -Seconds 2
             Update-Disk -Number $DiskNumber
 
@@ -207,7 +207,7 @@ function Invoke-WinUtilISOWriteUSB {
                 throw "Insufficient free space on USB partition. Required: $contentSizeGB GB, available: $partitionFreeGB GB."
             }
 
-            Step-WinUtilJob -Status "Copying Windows 11 files to USB..." -Percent 45
+            Step-WinUtilJob -Status "جارٍ نسخ ملفات ويندوز 11 إلى وحدة USB..." -Percent 45
 
             # Copy files; split install.wim if > 4 GB (FAT32 limit)
             $installWim = Join-Path $contentsDir "sources\install.wim"
@@ -229,24 +229,24 @@ function Invoke-WinUtilISOWriteUSB {
                 Invoke-WinUtilRobocopy -Source $contentsDir -Destination $usbDrive -Arguments @("/E","/NFL","/NDL","/NJH","/NJS")
             }
 
-            Step-WinUtilJob -Status "Finalising USB drive..." -Percent 90
+            Step-WinUtilJob -Status "جارٍ إنهاء تجهيز وحدة USB..." -Percent 90
             Write-WinUtilISOLog "Files copied to USB."
-            Step-WinUtilJob -Status "USB write complete" -Percent 100
+            Step-WinUtilJob -Status "اكتملت الكتابة على وحدة USB" -Percent 100
             Write-WinUtilISOLog "USB drive is ready for use."
 
             Invoke-WPFUIThread -Parameters @{ DiskNumber = $DiskNumber } -ScriptBlock {
                 param($DiskNumber)
 
-                $sync["WPFWin11ISODoneLabel"].Text = "Disk $DiskNumber is ready to boot from."
+                $sync["WPFWin11ISODoneLabel"].Text = "القرص $DiskNumber جاهز للإقلاع منه."
                 $sync["WPFWin11ISODonePanel"].Visibility = "Visible"
             }
             Set-WinUtilISOStep -Step "Output"
-            Show-WinUtilMessage -Message "USB drive created successfully!`n`nYou can now boot from this drive to install Windows 11." -Title "USB Ready" -Button "OK" -Icon "Info" | Out-Null
+            Show-WinUtilMessage -Message "تم إنشاء وحدة USB بنجاح!`n`nيمكنك الآن الإقلاع منها لتثبيت ويندوز 11." -Title "وحدة USB جاهزة" -Button "OK" -Icon "Info" | Out-Null
         } catch {
             Write-WinUtilISOLog -Level "ERROR" -Message "USB write failed: $_"
             $_.Exception.Data["WinUtilErrorReported"] = $true
             Set-WinUtilISOStep -Step "Output"
-            Show-WinUtilMessage -Message "USB write failed:`n`n$_" -Title "USB Write Error" -Button "OK" -Icon "Error" | Out-Null
+            Show-WinUtilMessage -Message "فشلت الكتابة على وحدة USB:`n`n$_" -Title "خطأ في الكتابة على USB" -Button "OK" -Icon "Error" | Out-Null
             throw
         } finally {
             Invoke-WPFUIThread -ScriptBlock {

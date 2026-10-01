@@ -1,4 +1,4 @@
-function Install-WinUtilChoco {
+﻿function Install-WinUtilChoco {
     <#
     .SYNOPSIS
         Installs Chocolatey if it is not already present
@@ -9,7 +9,7 @@ function Install-WinUtilChoco {
     }
 
     Write-WinUtilLog -Component "Package" -Message "Chocolatey is not installed, installing it now."
-    Step-WinUtilJob -Status "Installing Chocolatey" -State "Indeterminate"
+    Step-WinUtilJob -Status "جارٍ تثبيت Chocolatey" -State "Indeterminate"
 
     # Windows PowerShell 5.1 can negotiate a protocol the site refuses, which the official
     # bootstrap sets explicitly for the same reason

@@ -1,4 +1,4 @@
-function Get-WinUtilPowerShell7Path {
+﻿function Get-WinUtilPowerShell7Path {
     $command = Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
 
@@ -24,7 +24,7 @@ function Invoke-WinUtilInstallPSProfile {
 
     $pwshPath = Get-WinUtilPowerShell7Path
     if (-not $pwshPath) {
-        Step-WinUtilJob -Status "Installing PowerShell 7" -State "Indeterminate"
+        Step-WinUtilJob -Status "جارٍ تثبيت PowerShell 7" -State "Indeterminate"
         Write-WinUtilLog -Component "Feature" -Message "PowerShell 7 not found, installing it first."
 
         Install-WinUtilWinget
@@ -38,7 +38,7 @@ function Invoke-WinUtilInstallPSProfile {
         }
     }
 
-    Step-WinUtilJob -Status "Running the profile setup" -State "Indeterminate"
+    Step-WinUtilJob -Status "جارٍ تشغيل إعداد ملف التعريف" -State "Indeterminate"
 
     $setupUrl = "https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1"
     # Stop in the child, so a setup failure is a nonzero exit rather than a logged error and a

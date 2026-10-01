@@ -1,4 +1,4 @@
-function New-WinUtilFossBadge {
+﻿function New-WinUtilFossBadge {
     <#
         .SYNOPSIS
             Creates the FOSS marker: the open source keyhole on a green backdrop
@@ -47,7 +47,7 @@ function New-WinUtilFossBadge {
     $badge.Width = $Size
     $badge.Height = $Size
     $badge.Child = $artwork
-    $badge.ToolTip = "Free and Open Source Software"
+    $badge.ToolTip = "برمجيات حرة ومفتوحة المصدر"
 
     return $badge
 }

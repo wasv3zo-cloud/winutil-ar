@@ -1,4 +1,4 @@
-#===========================================================================
+﻿#===========================================================================
 # Tests - Install and Uninstall Workflows
 #===========================================================================
 
@@ -181,7 +181,7 @@ Describe "Invoke-WPFInstall entrypoint" {
         Invoke-WPFInstall
 
         Should -Invoke -CommandName Show-WinUtilMessage -Times 1 -Exactly -ParameterFilter {
-            $Message -eq "Please select the program(s) to install or upgrade." -and
+            $Message -eq "يرجى تحديد البرامج التي تريد تثبيتها أو تحديثها." -and
                 $Title -eq "WinUtil" -and
                 $Button -eq "OK" -and
                 $Icon -eq "Warning"
@@ -238,10 +238,10 @@ Describe "Invoke-WPFInstall job body" {
             $Action -eq "Install" -and @($Programs)[0] -eq "vlc"
         }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Installed Git.Git (1/2)" -and $Percent -eq 50
+            $Status -eq "تم تثبيت Git.Git (1/2)" -and $Percent -eq 50
         }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Installed Chocolatey packages (2/2)" -and $Percent -eq 100
+            $Status -eq "تم تثبيت حزم Chocolatey (2/2)" -and $Percent -eq 100
         }
     }
 
@@ -283,7 +283,7 @@ Describe "Invoke-WPFUnInstall entrypoint" {
         Invoke-WPFUnInstall
 
         Should -Invoke -CommandName Show-WinUtilMessage -Times 1 -Exactly -ParameterFilter {
-            $Title -eq "Are you sure?" -and $Button -eq "YesNo"
+            $Title -eq "هل أنت متأكد؟" -and $Button -eq "YesNo"
         }
         Should -Invoke -CommandName Start-WinUtilJob -Times 1 -Exactly -ParameterFilter {
             $Name -eq "Uninstall" -and
@@ -310,7 +310,7 @@ Describe "Invoke-WPFUnInstall entrypoint" {
         Invoke-WPFUnInstall
 
         Should -Invoke -CommandName Show-WinUtilMessage -Times 1 -Exactly -ParameterFilter {
-            $Message -eq "Please select the program(s) to uninstall"
+            $Message -eq "يرجى تحديد البرامج التي تريد إلغاء تثبيتها"
         }
         Should -Invoke -CommandName Start-WinUtilJob -Times 0 -Exactly
     }
@@ -365,10 +365,10 @@ Describe "Invoke-WPFUnInstall job body" {
             $Action -eq "Uninstall" -and @($Programs)[0] -eq "vlc"
         }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Uninstalled Git.Git (1/2)" -and $Percent -eq 50
+            $Status -eq "تم إلغاء تثبيت Git.Git (1/2)" -and $Percent -eq 50
         }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Uninstalled Chocolatey packages (2/2)" -and $Percent -eq 100
+            $Status -eq "تم إلغاء تثبيت حزم Chocolatey (2/2)" -and $Percent -eq 100
         }
     }
 

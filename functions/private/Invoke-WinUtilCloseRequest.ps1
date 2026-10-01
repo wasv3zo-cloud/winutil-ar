@@ -1,4 +1,4 @@
-function Invoke-WinUtilCloseRequest {
+﻿function Invoke-WinUtilCloseRequest {
     <#
         .SYNOPSIS
             Asks what to do about work that is still running when the window is closed
@@ -18,13 +18,13 @@ function Invoke-WinUtilCloseRequest {
 
     # The question carries the meaning rather than naming buttons: Windows labels them in its own
     # language, so "Yes" in the text would not match a button reading "Ja".
-    $answer = Show-WinUtilMessage -Button "YesNoCancel" -Icon "Warning" -Title "$RunningJob is still running" -Message @"
-$RunningJob has not finished yet.
+    $answer = Show-WinUtilMessage -Button "YesNoCancel" -Icon "Warning" -Title "$RunningJob ما زال قيد التشغيل" -Message @"
+لم تنتهِ عملية: $RunningJob بعد.
 
-Close the window and let it finish in the console?
+هل تريد إغلاق النافذة وترك العملية تكتمل في نافذة الأوامر؟
 
-WinUtil will exit on its own once it is done. If you do not, it will be
-stopped and everything closes now. Cancel keeps WinUtil open.
+سيُغلق WinUtil تلقائيًا عند انتهائها. إن اخترت الرفض فستتوقف العملية
+ويُغلق كل شيء الآن. اختر الإلغاء لإبقاء WinUtil مفتوحًا.
 "@
 
     switch ("$answer") {
@@ -42,7 +42,7 @@ stopped and everything closes now. Cancel keeps WinUtil open.
         }
         "No" {
             Write-WinUtilLog -Component "UI" -Message "Close requested: stopping $RunningJob."
-            Step-WinUtilJob -Status "Stopping $RunningJob" -State "Indeterminate"
+            Step-WinUtilJob -Status "جارٍ إيقاف $RunningJob" -State "Indeterminate"
             $sync.ForceClose = $true
 
             # Close the window first. The main thread owns pool shutdown after ShowDialog

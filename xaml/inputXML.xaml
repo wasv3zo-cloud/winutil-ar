@@ -11,7 +11,7 @@
         Height="Auto"
         MinWidth="800"
         MinHeight="600"
-        Title="WinUtil">
+        Title="WinUtil - أداة ويندوز" FlowDirection="RightToLeft" Language="ar-SA">
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0" CornerRadius="10" UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
@@ -856,9 +856,9 @@
                                         <ControlTemplate TargetType="ContextMenu">
                                             <Border Background="{DynamicResource MainBackgroundColor}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="5" Padding="5">
                                                 <StackPanel>
-                                                    <MenuItem Command="Cut" Header="Cut"/>
-                                                    <MenuItem Command="Copy" Header="Copy"/>
-                                                    <MenuItem Command="Paste" Header="Paste"/>
+                                                    <MenuItem Command="Cut" Header="قص"/>
+                                                    <MenuItem Command="Copy" Header="نسخ"/>
+                                                    <MenuItem Command="Paste" Header="لصق"/>
                                                 </StackPanel>
                                             </Border>
                                         </ControlTemplate>
@@ -1044,7 +1044,7 @@
         </Grid.ColumnDefinitions>
         <!-- Offline banner -->
         <Border Name="WPFOfflineBanner" Grid.Row="0" Background="#8B0000" Visibility="Collapsed" Padding="6,4">
-            <TextBlock Text="&#x26A0; Offline Mode - No Internet Connection" Foreground="White" FontWeight="Bold"
+            <TextBlock Text="&#x26A0; وضع عدم الاتصال - لا يوجد اتصال بالإنترنت" Foreground="White" FontWeight="Bold"
                 HorizontalAlignment="Center" FontSize="13" Background="Transparent"/>
         </Border>
         <Grid Grid.Row="1" Background="{DynamicResource MainBackgroundColor}">
@@ -1055,13 +1055,13 @@
 
             <!-- Navigation Buttons Panel -->
             <StackPanel Name="NavDockPanel" Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center" Margin="5,5,10,5">
-                <StackPanel Name="NavLogoPanel" Orientation="Horizontal" HorizontalAlignment="Left" Background="{DynamicResource MainBackgroundColor}" SnapsToDevicePixels="True" Margin="10,0,20,0">
+                <StackPanel Name="NavLogoPanel" FlowDirection="LeftToRight" Orientation="Horizontal" HorizontalAlignment="Left" Background="{DynamicResource MainBackgroundColor}" SnapsToDevicePixels="True" Margin="10,0,20,0">
                 </StackPanel>
                 <ToggleButton Style="{StaticResource TabToggleButton}" Margin="0,0,5,0" Height="{DynamicResource TabButtonHeight}" Width="{DynamicResource TabButtonWidth}"
                     Background="{DynamicResource ButtonInstallBackgroundColor}" Foreground="white" FontWeight="Bold" Name="WPFTab1BT">
                     <ToggleButton.Content>
                         <TextBlock FontSize="{DynamicResource TabButtonFontSize}" Background="Transparent" Foreground="{DynamicResource ButtonInstallForegroundColor}" >
-                            <Underline>I</Underline>nstall
+                            التثبيت (<Underline>I</Underline>)
                         </TextBlock>
                     </ToggleButton.Content>
                 </ToggleButton>
@@ -1069,7 +1069,7 @@
                     Background="{DynamicResource ButtonTweaksBackgroundColor}" Foreground="{DynamicResource ButtonTweaksForegroundColor}" FontWeight="Bold" Name="WPFTab2BT">
                     <ToggleButton.Content>
                         <TextBlock FontSize="{DynamicResource TabButtonFontSize}" Background="Transparent" Foreground="{DynamicResource ButtonTweaksForegroundColor}">
-                            <Underline>T</Underline>weaks
+                            التحسينات (<Underline>T</Underline>)
                         </TextBlock>
                     </ToggleButton.Content>
                 </ToggleButton>
@@ -1077,7 +1077,7 @@
                     Background="{DynamicResource ButtonConfigBackgroundColor}" Foreground="{DynamicResource ButtonConfigForegroundColor}" FontWeight="Bold" Name="WPFTab3BT">
                     <ToggleButton.Content>
                         <TextBlock FontSize="{DynamicResource TabButtonFontSize}" Background="Transparent" Foreground="{DynamicResource ButtonConfigForegroundColor}">
-                            <Underline>C</Underline>onfig
+                            الإعدادات (<Underline>C</Underline>)
                         </TextBlock>
                     </ToggleButton.Content>
                 </ToggleButton>
@@ -1085,7 +1085,7 @@
                     Background="{DynamicResource ButtonUpdatesBackgroundColor}" Foreground="{DynamicResource ButtonUpdatesForegroundColor}" FontWeight="Bold" Name="WPFTab4BT">
                     <ToggleButton.Content>
                         <TextBlock FontSize="{DynamicResource TabButtonFontSize}" Background="Transparent" Foreground="{DynamicResource ButtonUpdatesForegroundColor}">
-                            <Underline>U</Underline>pdates
+                            التحديثات (<Underline>U</Underline>)
                         </TextBlock>
                     </ToggleButton.Content>
                 </ToggleButton>
@@ -1093,7 +1093,7 @@
                     Background="{DynamicResource ButtonWin11ISOBackgroundColor}" Foreground="{DynamicResource ButtonWin11ISOForegroundColor}" FontWeight="Bold" Name="WPFTab5BT">
                     <ToggleButton.Content>
                         <TextBlock FontSize="{DynamicResource TabButtonFontSize}" Background="Transparent" Foreground="{DynamicResource ButtonWin11ISOForegroundColor}">
-                            <Underline>W</Underline>in11 Creator
+                            منشئ ويندوز 11 (<Underline>W</Underline>)
                         </TextBlock>
                     </ToggleButton.Content>
                 </ToggleButton>
@@ -1116,8 +1116,8 @@
                             Name="SearchBar"
                             Foreground="{DynamicResource MainForegroundColor}" Background="{DynamicResource MainBackgroundColor}"
                             Padding="3,3,30,0"
-                            ToolTip="Press Ctrl-F and type app name to filter application list below. Press Esc to reset the filter"
-                            AutomationProperties.Name="Search">
+                            ToolTip="اضغط Ctrl+F واكتب اسم التطبيق لتصفية القائمة أدناه. اضغط Esc لإلغاء التصفية"
+                            AutomationProperties.Name="بحث">
                         </TextBox>
                         <TextBlock
                             Name="SearchBarIcon"
@@ -1133,7 +1133,7 @@
                     VerticalAlignment="Center" HorizontalAlignment="Right"
                     Name="SearchBarClearButton"
                     Style="{StaticResource SearchBarClearButtonStyle}"
-                    AutomationProperties.Name="Clear Search"
+                    AutomationProperties.Name="مسح البحث"
                     Margin="0,0,20,0" Visibility="Collapsed">
                 </Button>
 
@@ -1150,8 +1150,8 @@
                     Margin="0,0,2,0"
                     FontFamily="Segoe MDL2 Assets"
                     Content="N/A"
-                    ToolTip="Change the WinUtil UI Theme"
-                    AutomationProperties.Name="Theme"
+                    ToolTip="تغيير سمة واجهة WinUtil"
+                    AutomationProperties.Name="السمة"
                 />
                     <Popup Name="ThemePopup"
                     IsOpen="False"
@@ -1159,19 +1159,19 @@
                     HorizontalAlignment="Right" VerticalAlignment="Top">
                     <Border Background="{DynamicResource MainBackgroundColor}" BorderBrush="{DynamicResource MainForegroundColor}" BorderThickness="1" CornerRadius="0" Margin="0">
                         <StackPanel Background="{DynamicResource MainBackgroundColor}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="Auto" Name="AutoThemeMenuItem" Foreground="{DynamicResource MainForegroundColor}">
+                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="تلقائي" Name="AutoThemeMenuItem" Foreground="{DynamicResource MainForegroundColor}">
                                 <MenuItem.ToolTip>
-                                    <ToolTip Content="Follow the Windows Theme"/>
+                                    <ToolTip Content="اتباع سمة ويندوز"/>
                                 </MenuItem.ToolTip>
                             </MenuItem>
-                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="Dark" Name="DarkThemeMenuItem" Foreground="{DynamicResource MainForegroundColor}">
+                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="داكن" Name="DarkThemeMenuItem" Foreground="{DynamicResource MainForegroundColor}">
                                 <MenuItem.ToolTip>
-                                    <ToolTip Content="Use Dark Theme"/>
+                                    <ToolTip Content="استخدام السمة الداكنة"/>
                                 </MenuItem.ToolTip>
                             </MenuItem>
-                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="Light" Name="LightThemeMenuItem" Foreground="{DynamicResource MainForegroundColor}">
+                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="فاتح" Name="LightThemeMenuItem" Foreground="{DynamicResource MainForegroundColor}">
                                 <MenuItem.ToolTip>
-                                    <ToolTip Content="Use Light Theme"/>
+                                    <ToolTip Content="استخدام السمة الفاتحة"/>
                                 </MenuItem.ToolTip>
                             </MenuItem>
                         </StackPanel>
@@ -1189,8 +1189,8 @@
                     Margin="0,0,2,0"
                     FontFamily="Segoe MDL2 Assets"
                     Content="&#xE8D3;"
-                    ToolTip="Adjust Font Scaling for Accessibility"
-                    AutomationProperties.Name="Font Scaling"
+                    ToolTip="ضبط حجم الخط لتسهيل القراءة"
+                    AutomationProperties.Name="حجم الخط"
                 />
                     <Popup Name="FontScalingPopup"
                     IsOpen="False"
@@ -1198,7 +1198,7 @@
                     HorizontalAlignment="Right" VerticalAlignment="Top">
                     <Border Background="{DynamicResource MainBackgroundColor}" BorderBrush="{DynamicResource MainForegroundColor}" BorderThickness="1" CornerRadius="0" Margin="0">
                         <StackPanel Background="{DynamicResource MainBackgroundColor}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MinWidth="200">
-                            <TextBlock Text="Font Scaling"
+                            <TextBlock Text="حجم الخط"
                                        FontSize="{DynamicResource ButtonFontSize}"
                                        Foreground="{DynamicResource MainForegroundColor}"
                                        HorizontalAlignment="Center"
@@ -1206,7 +1206,7 @@
                                        FontWeight="Bold"/>
                             <Separator Margin="5,0,5,5"/>
                             <StackPanel Orientation="Horizontal" Margin="10,5,10,10">
-                                <TextBlock Text="Small"
+                                <TextBlock Text="صغير"
                                            FontSize="{DynamicResource ButtonFontSize}"
                                            Foreground="{DynamicResource MainForegroundColor}"
                                            VerticalAlignment="Center"
@@ -1222,8 +1222,8 @@
                                         LargeChange="0.25"
                                         Width="120"
                                         VerticalAlignment="Center"
-                                        AutomationProperties.Name="Font Scaling"/>
-                                <TextBlock Text="Large"
+                                        AutomationProperties.Name="حجم الخط"/>
+                                <TextBlock Text="كبير"
                                            FontSize="{DynamicResource ButtonFontSize}"
                                            Foreground="{DynamicResource MainForegroundColor}"
                                            VerticalAlignment="Center"
@@ -1237,12 +1237,12 @@
                                        Margin="10,0,10,5"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="10,0,10,10">
                                 <Button Name="FontScalingResetButton"
-                                        Content="Reset"
+                                        Content="إعادة ضبط"
                                         Style="{StaticResource HoverButtonStyle}"
                                         Width="60" Height="25"
                                         Margin="5,0,5,0"/>
                                 <Button Name="FontScalingApplyButton"
-                                        Content="Apply"
+                                        Content="تطبيق"
                                         Style="{StaticResource HoverButtonStyle}"
                                         Width="60" Height="25"
                                         Margin="5,0,5,0"/>
@@ -1261,8 +1261,8 @@
                     HorizontalAlignment="Right" VerticalAlignment="Center"
                     Margin="0,0,2,0"
                     FontFamily="Segoe MDL2 Assets"
-                    ToolTip="Settings"
-                    AutomationProperties.Name="Settings"
+                    ToolTip="الإعدادات"
+                    AutomationProperties.Name="الإعدادات"
                     Content="&#xE713;"/>
                     <Popup Name="SettingsPopup"
                     IsOpen="False"
@@ -1270,26 +1270,26 @@
                     HorizontalAlignment="Right" VerticalAlignment="Top">
                     <Border Background="{DynamicResource MainBackgroundColor}" BorderBrush="{DynamicResource MainForegroundColor}" BorderThickness="1" CornerRadius="0" Margin="0">
                         <StackPanel Background="{DynamicResource MainBackgroundColor}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="Import" Name="ImportMenuItem" Foreground="{DynamicResource MainForegroundColor}">
+                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="استيراد" Name="ImportMenuItem" Foreground="{DynamicResource MainForegroundColor}">
                                 <MenuItem.ToolTip>
-                                    <ToolTip Content="Import Configuration from exported file."/>
+                                    <ToolTip Content="استيراد الإعدادات من ملف مُصدَّر."/>
                                 </MenuItem.ToolTip>
                             </MenuItem>
-                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="Export" Name="ExportMenuItem" Foreground="{DynamicResource MainForegroundColor}">
+                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="تصدير" Name="ExportMenuItem" Foreground="{DynamicResource MainForegroundColor}">
                                 <MenuItem.ToolTip>
-                                    <ToolTip Content="Export Selected Elements and copy execution command to clipboard."/>
-                                </MenuItem.ToolTip>
-                            </MenuItem>
-                            <Separator/>
-                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="Export Environment Report" Name="ExportEnvironmentReportMenuItem" Foreground="{DynamicResource MainForegroundColor}">
-                                <MenuItem.ToolTip>
-                                    <ToolTip Content="Export a read-only diagnostics report for troubleshooting."/>
+                                    <ToolTip Content="تصدير العناصر المحددة ونسخ أمر التنفيذ إلى الحافظة."/>
                                 </MenuItem.ToolTip>
                             </MenuItem>
                             <Separator/>
-                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="About" Name="AboutMenuItem" Foreground="{DynamicResource MainForegroundColor}"/>
-                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="Documentation" Name="DocumentationMenuItem" Foreground="{DynamicResource MainForegroundColor}"/>
-                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="Sponsors" Name="SponsorMenuItem" Foreground="{DynamicResource MainForegroundColor}"/>
+                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="تصدير تقرير بيئة النظام" Name="ExportEnvironmentReportMenuItem" Foreground="{DynamicResource MainForegroundColor}">
+                                <MenuItem.ToolTip>
+                                    <ToolTip Content="تصدير تقرير تشخيصي للقراءة فقط لاستكشاف الأخطاء."/>
+                                </MenuItem.ToolTip>
+                            </MenuItem>
+                            <Separator/>
+                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="حول" Name="AboutMenuItem" Foreground="{DynamicResource MainForegroundColor}"/>
+                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="التوثيق" Name="DocumentationMenuItem" Foreground="{DynamicResource MainForegroundColor}"/>
+                            <MenuItem FontSize="{DynamicResource ButtonFontSize}" Header="الداعمون" Name="SponsorMenuItem" Foreground="{DynamicResource MainForegroundColor}"/>
                         </StackPanel>
                     </Border>
                 </Popup>
@@ -1306,8 +1306,8 @@
                         FontFamily="Segoe MDL2 Assets"
                         Foreground="{DynamicResource MainForegroundColor}"
                         FontSize="{DynamicResource CloseIconFontSize}"
-                        ToolTip="Minimize"
-                        AutomationProperties.Name="Minimize"
+                        ToolTip="تصغير"
+                        AutomationProperties.Name="تصغير"
                         Name="WPFMinimizeButton" />
                     <Button
                         BorderThickness="0"
@@ -1348,8 +1348,8 @@
                         FontFamily="Segoe MDL2 Assets"
                         Foreground="{DynamicResource MainForegroundColor}"
                         FontSize="{DynamicResource CloseIconFontSize}"
-                        ToolTip="Close"
-                        AutomationProperties.Name="Close"
+                        ToolTip="إغلاق"
+                        AutomationProperties.Name="إغلاق"
                         Name="WPFCloseButton" />
                 </StackPanel>
             </Grid>
@@ -1372,18 +1372,18 @@
                                    Background="Transparent"
                                    VerticalAlignment="Center"
                                    Margin="10,0,10,0"
-                                   ToolTip="Filter by category. Ctrl click to select more than one."/>
-                        <ToggleButton Name="WPFSearchChipAll"             Content="All"               Style="{StaticResource FilterChipToggleStyle}" IsChecked="True"/>
-                        <ToggleButton Name="WPFSearchChipBrowsers"        Content="Browsers"          Style="{StaticResource FilterChipToggleStyle}"/>
-                        <ToggleButton Name="WPFSearchChipCommunications"  Content="Communications"    Style="{StaticResource FilterChipToggleStyle}"/>
-                        <ToggleButton Name="WPFSearchChipDevelopment"     Content="Development"       Style="{StaticResource FilterChipToggleStyle}"/>
-                        <ToggleButton Name="WPFSearchChipDocument"        Content="Document"          Style="{StaticResource FilterChipToggleStyle}"/>
-                        <ToggleButton Name="WPFSearchChipGames"           Content="Games"             Style="{StaticResource FilterChipToggleStyle}"/>
-                        <ToggleButton Name="WPFSearchChipMicrosoftTools"  Content="Microsoft Tools"   Style="{StaticResource FilterChipToggleStyle}"/>
-                        <ToggleButton Name="WPFSearchChipMultimediaTools" Content="Multimedia Tools"  Style="{StaticResource FilterChipToggleStyle}"/>
-                        <ToggleButton Name="WPFSearchChipProTools"        Content="Pro Tools"         Style="{StaticResource FilterChipToggleStyle}"/>
-                        <ToggleButton Name="WPFSearchChipSelfhostedTools" Content="Selfhosted Tools"  Style="{StaticResource FilterChipToggleStyle}"/>
-                        <ToggleButton Name="WPFSearchChipUtilities"       Content="Utilities"         Style="{StaticResource FilterChipToggleStyle}"/>
+                                   ToolTip="التصفية حسب الفئة. اضغط Ctrl مع النقر لاختيار أكثر من فئة."/>
+                        <ToggleButton Name="WPFSearchChipAll"             Content="الكل"               Style="{StaticResource FilterChipToggleStyle}" IsChecked="True"/>
+                        <ToggleButton Name="WPFSearchChipBrowsers"        Content="المتصفحات"          Style="{StaticResource FilterChipToggleStyle}"/>
+                        <ToggleButton Name="WPFSearchChipCommunications"  Content="التواصل"    Style="{StaticResource FilterChipToggleStyle}"/>
+                        <ToggleButton Name="WPFSearchChipDevelopment"     Content="التطوير"       Style="{StaticResource FilterChipToggleStyle}"/>
+                        <ToggleButton Name="WPFSearchChipDocument"        Content="المستندات"          Style="{StaticResource FilterChipToggleStyle}"/>
+                        <ToggleButton Name="WPFSearchChipGames"           Content="الألعاب"             Style="{StaticResource FilterChipToggleStyle}"/>
+                        <ToggleButton Name="WPFSearchChipMicrosoftTools"  Content="أدوات مايكروسوفت"   Style="{StaticResource FilterChipToggleStyle}"/>
+                        <ToggleButton Name="WPFSearchChipMultimediaTools" Content="الوسائط المتعددة"  Style="{StaticResource FilterChipToggleStyle}"/>
+                        <ToggleButton Name="WPFSearchChipProTools"        Content="أدوات احترافية"         Style="{StaticResource FilterChipToggleStyle}"/>
+                        <ToggleButton Name="WPFSearchChipSelfhostedTools" Content="الاستضافة الذاتية"  Style="{StaticResource FilterChipToggleStyle}"/>
+                        <ToggleButton Name="WPFSearchChipUtilities"       Content="الأدوات المساعدة"         Style="{StaticResource FilterChipToggleStyle}"/>
                     </WrapPanel>
 
                     <Grid Grid.Row="1" Margin="{DynamicResource TabContentMargin}">
@@ -1417,14 +1417,14 @@
                             </Grid.RowDefinitions>
 
                             <StackPanel Background="{DynamicResource MainBackgroundColor}" Orientation="Vertical" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="5">
-                                <Label Content="Recommended Selections:" FontSize="{DynamicResource FontSize}" VerticalAlignment="Center" Margin="2"/>
+                                <Label Content="اختيارات مقترحة:" FontSize="{DynamicResource FontSize}" VerticalAlignment="Center" Margin="2"/>
                                 <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,2,0,0">
-                                    <Button Name="WPFstandard" Content=" Standard " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
-                                    <Button Name="WPFminimal" Content=" Minimal " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
-                                    <Button Name="WPFAdvanced" Content=" Advanced " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
-                                    <Button Name="WPFClearTweaksSelection" Content=" Clear " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
-                                    <Button Name="WPFGetInstalledTweaks" Content=" Select Installed Tweaks " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
-                                    <Button Name="WPFAppxRemoval" Content=" AppX Removal " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFstandard" Content=" قياسي " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFminimal" Content=" أساسي " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFAdvanced" Content=" متقدم " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFClearTweaksSelection" Content=" مسح " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFGetInstalledTweaks" Content=" تحديد التحسينات المطبقة " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFAppxRemoval" Content=" إزالة تطبيقات AppX " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                 </WrapPanel>
                             </StackPanel>
 
@@ -1444,8 +1444,8 @@
                     </ScrollViewer>
                     <Border Grid.Row="1" Background="{DynamicResource MainBackgroundColor}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="5" HorizontalAlignment="Stretch" Padding="10">
                         <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Grid.Column="0">
-                            <Button Name="WPFTweaksbutton" Content="Run Tweaks" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
-                            <Button Name="WPFUndoall" Content="Undo Selected Tweaks" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                            <Button Name="WPFTweaksbutton" Content="تطبيق التحسينات" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                            <Button Name="WPFUndoall" Content="التراجع عن التحسينات المحددة" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                         </WrapPanel>
                     </Border>
                 </Grid>
@@ -1466,11 +1466,11 @@
                         </Grid.RowDefinitions>
 
                         <StackPanel Grid.Row="0" Margin="10,10,10,14">
-                            <TextBlock Text="Windows Update Profiles"
+                            <TextBlock Text="ملفات تحديثات ويندوز"
                                        FontSize="24"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource MainForegroundColor}"/>
-                            <TextBlock Text="Choose how Windows receives updates. Each profile replaces the Windows Update settings managed by WinUtil."
+                            <TextBlock Text="اختر طريقة استقبال ويندوز للتحديثات. كل ملف يستبدل إعدادات Windows Update التي يديرها WinUtil."
                                        Margin="0,6,0,0"
                                        FontSize="13"
                                        TextWrapping="Wrap"
@@ -1490,21 +1490,21 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <StackPanel Grid.Row="0" Margin="0,0,0,14">
-                                        <TextBlock Text="Recommended"
+                                        <TextBlock Text="المُوصى به"
                                                    FontSize="20"
                                                    FontWeight="Bold"
                                                    Foreground="{DynamicResource MainForegroundColor}"/>
-                                        <TextBlock Text="Balanced security and stability"
+                                        <TextBlock Text="توازن بين الأمان والاستقرار"
                                                    Margin="0,4,0,0"
                                                    FontSize="13"
                                                    Foreground="{DynamicResource MainForegroundColor}"/>
                                     </StackPanel>
                                     <StackPanel Grid.Row="1">
-                                        <TextBlock Text="- Defers feature updates for 365 days" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
-                                        <TextBlock Text="- Defers quality updates for 4 days" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
-                                        <TextBlock Text="- Excludes drivers from quality updates" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
-                                        <TextBlock Text="- Notifies when downloaded updates are ready to install" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource MainForegroundColor}"/>
-                                        <TextBlock Text="Available on Windows Pro, Enterprise, and Education editions."
+                                        <TextBlock Text="- يؤجل تحديثات الميزات 365 يومًا" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
+                                        <TextBlock Text="- يؤجل تحديثات الجودة 4 أيام" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
+                                        <TextBlock Text="- يستثني التعريفات من تحديثات الجودة" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
+                                        <TextBlock Text="- ينبّهك عندما تصبح التحديثات المنزّلة جاهزة للتثبيت" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource MainForegroundColor}"/>
+                                        <TextBlock Text="متاح في إصدارات ويندوز Pro وEnterprise وEducation."
                                                    FontSize="11"
                                                    FontStyle="Italic"
                                                    TextWrapping="Wrap"
@@ -1512,7 +1512,7 @@
                                     </StackPanel>
                                     <Button Name="WPFUpdatessecurity"
                                             Grid.Row="2"
-                                            Content="Apply Recommended"
+                                            Content="تطبيق المُوصى به"
                                             FontSize="{DynamicResource ConfigTabButtonFontSize}"
                                             Margin="0,16,0,0"
                                             Padding="10"/>
@@ -1527,20 +1527,20 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <StackPanel Grid.Row="0" Margin="0,0,0,14">
-                                        <TextBlock Text="Windows Default"
+                                        <TextBlock Text="الإعداد الافتراضي لويندوز"
                                                    FontSize="20"
                                                    FontWeight="Bold"
                                                    Foreground="{DynamicResource MainForegroundColor}"/>
-                                        <TextBlock Text="Return control to Windows"
+                                        <TextBlock Text="إعادة التحكم إلى ويندوز"
                                                    Margin="0,4,0,0"
                                                    FontSize="13"
                                                    Foreground="{DynamicResource MainForegroundColor}"/>
                                     </StackPanel>
                                     <StackPanel Grid.Row="1">
-                                        <TextBlock Text="- Removes Windows Update policies applied by WinUtil" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
-                                        <TextBlock Text="- Restores update service startup settings" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
-                                        <TextBlock Text="- Re-enables update scheduled tasks" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource MainForegroundColor}"/>
-                                        <TextBlock Text="Use this to undo the Recommended or Disable profile."
+                                        <TextBlock Text="- يزيل سياسات Windows Update التي طبّقها WinUtil" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
+                                        <TextBlock Text="- يستعيد إعدادات بدء تشغيل خدمة التحديث" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
+                                        <TextBlock Text="- يعيد تفعيل مهام التحديث المجدولة" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource MainForegroundColor}"/>
+                                        <TextBlock Text="استخدمه للتراجع عن ملف «المُوصى به» أو «تعطيل التحديثات»."
                                                    FontSize="11"
                                                    FontStyle="Italic"
                                                    TextWrapping="Wrap"
@@ -1548,7 +1548,7 @@
                                     </StackPanel>
                                     <Button Name="WPFUpdatesdefault"
                                             Grid.Row="2"
-                                            Content="Restore Defaults"
+                                            Content="استعادة الافتراضي"
                                             FontSize="{DynamicResource ConfigTabButtonFontSize}"
                                             Margin="0,16,0,0"
                                             Padding="10"/>
@@ -1563,21 +1563,21 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <StackPanel Grid.Row="0" Margin="0,0,0,14">
-                                        <TextBlock Text="Disable Updates"
+                                        <TextBlock Text="تعطيل التحديثات"
                                                    FontSize="20"
                                                    FontWeight="Bold"
                                                    Foreground="Red"/>
-                                        <TextBlock Text="Advanced use only"
+                                        <TextBlock Text="للاستخدام المتقدم فقط"
                                                    Margin="0,4,0,0"
                                                    FontSize="13"
                                                    FontWeight="SemiBold"
                                                    Foreground="Red"/>
                                     </StackPanel>
                                     <StackPanel Grid.Row="1">
-                                        <TextBlock Text="- Disables automatic update policy" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
-                                        <TextBlock Text="- Stops update services and scheduled tasks" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
-                                        <TextBlock Text="- Clears downloaded update files" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource MainForegroundColor}"/>
-                                        <TextBlock Text="Security updates will not be installed while this profile is active."
+                                        <TextBlock Text="- يعطّل سياسة التحديث التلقائي" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
+                                        <TextBlock Text="- يوقف خدمات التحديث والمهام المجدولة" TextWrapping="Wrap" Margin="0,0,0,7" Foreground="{DynamicResource MainForegroundColor}"/>
+                                        <TextBlock Text="- يمسح ملفات التحديث المنزّلة" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource MainForegroundColor}"/>
+                                        <TextBlock Text="لن تُثبَّت التحديثات الأمنية ما دام هذا الملف مفعّلًا."
                                                    FontSize="11"
                                                    FontStyle="Italic"
                                                    TextWrapping="Wrap"
@@ -1585,7 +1585,7 @@
                                     </StackPanel>
                                     <Button Name="WPFUpdatesdisable"
                                             Grid.Row="2"
-                                            Content="Disable Updates"
+                                            Content="تعطيل التحديثات"
                                             FontSize="{DynamicResource ConfigTabButtonFontSize}"
                                             Foreground="Red"
                                             Margin="0,16,0,0"
@@ -1595,7 +1595,7 @@
                         </UniformGrid>
 
                         <Border Grid.Row="2" Style="{StaticResource BorderStyle}" Margin="8,14,8,8" Padding="12">
-                            <TextBlock Text="Changes apply system-wide. Restart Windows after switching profiles. Use Restore Defaults to undo WinUtil update policies."
+                            <TextBlock Text="تُطبَّق التغييرات على النظام بالكامل. أعد تشغيل ويندوز بعد تغيير الملف. استخدم «استعادة الافتراضي» للتراجع عن سياسات التحديث في WinUtil."
                                        TextWrapping="Wrap"
                                        HorizontalAlignment="Center"
                                        Foreground="{DynamicResource MainForegroundColor}"/>
@@ -1622,14 +1622,14 @@
                         <Button Name="WPFWin11ISOBackButton"
                                 Grid.Column="0"
                                 Margin="0,0,10,0"
-                                Content="&#xE76B;"
+                                Content="&#xE76C;"
                                 FontFamily="Segoe MDL2 Assets"
                                 FontSize="{DynamicResource Win11StepTitleFontSize}"
                                 MinWidth="44" MinHeight="72"
                                 Background="Transparent"
                                 HorizontalAlignment="Right" VerticalAlignment="Center"
                                 Panel.ZIndex="1"
-                                ToolTip="Back to the previous step">
+                                ToolTip="العودة إلى الخطوة السابقة">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource HoverButtonStyle}">
                                     <Setter Property="Visibility" Value="Hidden"/>
@@ -1644,14 +1644,14 @@
                         <Button Name="WPFWin11ISOForwardButton"
                                 Grid.Column="2"
                                 Margin="10,0,0,0"
-                                Content="&#xE76C;"
+                                Content="&#xE76B;"
                                 FontFamily="Segoe MDL2 Assets"
                                 FontSize="{DynamicResource Win11StepTitleFontSize}"
                                 MinWidth="44" MinHeight="72"
                                 Background="Transparent"
                                 HorizontalAlignment="Left" VerticalAlignment="Center"
                                 Panel.ZIndex="1"
-                                ToolTip="Forward to the next step">
+                                ToolTip="الانتقال إلى الخطوة التالية">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource HoverButtonStyle}">
                                     <Setter Property="Visibility" Value="Hidden"/>
@@ -1853,10 +1853,10 @@
                             </TabControl.Resources>
 
                             <!-- ─── STEP 1 : Select Windows 11 ISO ─────────────── -->
-                            <TabItem Name="WPFWin11ISOSelectSection" Tag="&#xE958;" Header="1   Select ISO">
+                            <TabItem Name="WPFWin11ISOSelectSection" Tag="&#xE958;" Header="1   اختيار ملف ISO">
                                 <StackPanel Style="{StaticResource Win11StepColumn}">
                                     <TextBlock Text="&#xE958;" Style="{StaticResource Win11StepHero}"/>
-                                    <TextBlock Style="{StaticResource Win11StepTitle}" Text="Select your Windows 11 ISO"/>
+                                    <TextBlock Style="{StaticResource Win11StepTitle}" Text="اختر ملف ISO لويندوز 11"/>
                                     <TextBlock Style="{StaticResource Win11StepSubtitle}">
                                         Choose an official Windows 11 ISO downloaded from Microsoft. It will be
                                         mounted and checked before anything is changed.
@@ -1864,7 +1864,7 @@
 
                                     <Border Style="{StaticResource Win11FormPanel}" Margin="0,0,0,16">
                                         <StackPanel>
-                                            <TextBlock Style="{StaticResource Win11StepLabel}" Text="ISO file"/>
+                                            <TextBlock Style="{StaticResource Win11StepLabel}" Text="ملف ISO"/>
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
@@ -1878,29 +1878,29 @@
                                                          Height="34"
                                                          Padding="10,0"
                                                          Margin="0,0,12,0"
-                                                         Text="No ISO selected..."
+                                                         Text="لم يُختر ملف ISO..."
                                                          Foreground="{DynamicResource MainForegroundColor}"
                                                          Background="{DynamicResource MainBackgroundColor}"/>
                                                 <Button Grid.Column="1" Name="WPFWin11ISOBrowseButton" MinWidth="130"
-                                                        Style="{StaticResource Win11StepButton}" Tag="&#xE8B7;" Content="Browse"/>
+                                                        Style="{StaticResource Win11StepButton}" Tag="&#xE8B7;" Content="استعراض"/>
                                             </Grid>
                                             <!-- Hidden rather than collapsed so picking an ISO does not shift the page -->
                                             <TextBlock Name="WPFWin11ISOFileInfo"
                                                        Style="{StaticResource Win11StepBody}"
                                                        Margin="0,10,0,0"
                                                        Visibility="Hidden"
-                                                       Text="File size:"/>
+                                                       Text="حجم الملف:"/>
                                         </StackPanel>
                                     </Border>
 
                                     <Button Name="WPFWin11ISOMountButton" Margin="0,0,0,20"
-                                            Style="{StaticResource Win11StepButton}" Tag="&#xE8FB;" Content="Mount &amp; Verify ISO"/>
+                                            Style="{StaticResource Win11StepButton}" Tag="&#xE8FB;" Content="تحميل ملف ISO والتحقق منه"/>
 
                                     <Border Style="{StaticResource Win11InfoPanel}">
                                         <StackPanel>
                                             <TextBlock Style="{StaticResource Win11StepLabel}" Foreground="OrangeRed" Margin="0,0,0,10">
                                                 <Run FontFamily="Segoe MDL2 Assets" Text="&#xE7BA;"/>
-                                                <Run Text=" You must use an official Microsoft ISO"/>
+                                                <Run Text=" يجب استخدام ملف ISO رسمي من مايكروسوفت"/>
                                             </TextBlock>
                                             <TextBlock Style="{StaticResource Win11StepBody}">
                                                 Third-party, pre-modified, or unofficial images are not supported
@@ -1911,17 +1911,17 @@
                                                 On the download page choose Windows 11, your language, and 64-bit (x64).
                                             </TextBlock>
                                             <Button Name="WPFWin11ISODownloadLink"
-                                                    Style="{StaticResource Win11StepButton}" Tag="&#xE8A7;" Content="Open Microsoft Download Page"/>
+                                                    Style="{StaticResource Win11StepButton}" Tag="&#xE8A7;" Content="فتح صفحة التنزيل من مايكروسوفت"/>
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
                             </TabItem>
 
                             <!-- ─── STEP 2 : Modify install.wim ───────────────────── -->
-                            <TabItem Name="WPFWin11ISOModifySection" IsEnabled="False" Tag="&#xE713;" Header="2   Modify Image">
+                            <TabItem Name="WPFWin11ISOModifySection" IsEnabled="False" Tag="&#xE713;" Header="2   تعديل الصورة">
                                 <StackPanel Style="{StaticResource Win11StepColumn}">
                                     <TextBlock Text="&#xE713;" Style="{StaticResource Win11StepHero}"/>
-                                    <TextBlock Style="{StaticResource Win11StepTitle}" Text="Modify the image"/>
+                                    <TextBlock Style="{StaticResource Win11StepTitle}" Text="تعديل الصورة"/>
                                     <TextBlock Style="{StaticResource Win11StepSubtitle}">
                                         Pick what goes into the image, then start. This takes several minutes
                                         depending on your hardware.
@@ -1941,10 +1941,10 @@
                                                        VerticalAlignment="Center" Margin="12,0,0,0"/>
                                             <StackPanel Grid.Column="0" Orientation="Horizontal">
                                                 <TextBlock Text="&#xE958;" Style="{StaticResource Win11StepIcon}"/>
-                                                <TextBlock Style="{StaticResource Win11StepCaption}" Text="Mounted at"/>
+                                                <TextBlock Style="{StaticResource Win11StepCaption}" Text="محمّل على"/>
                                                 <TextBlock Name="WPFWin11ISOMountDriveLetter" Style="{StaticResource Win11StepValue}"/>
                                                 <TextBlock Text="&#xE8A5;" Style="{StaticResource Win11StepIcon}" Margin="22,0,8,0"/>
-                                                <TextBlock Style="{StaticResource Win11StepCaption}" Text="Image file"/>
+                                                <TextBlock Style="{StaticResource Win11StepCaption}" Text="ملف الصورة"/>
                                                 <TextBlock Name="WPFWin11ISOImageFile" Style="{StaticResource Win11StepValue}"/>
                                             </StackPanel>
                                         </Grid>
@@ -1952,7 +1952,7 @@
 
                                     <Border Style="{StaticResource Win11FormPanel}" Margin="0,0,0,16">
                                         <StackPanel>
-                                            <TextBlock Style="{StaticResource Win11StepLabel}" Text="Windows edition"/>
+                                            <TextBlock Style="{StaticResource Win11StepLabel}" Text="إصدار ويندوز"/>
                                             <ComboBox Name="WPFWin11ISOEditionComboBox"
                                                       FontSize="{DynamicResource FontSize}"
                                                       Foreground="{DynamicResource MainForegroundColor}"
@@ -1961,46 +1961,46 @@
                                                       Height="34"
                                                       Margin="0,0,0,14"/>
                                             <CheckBox Name="WPFWin11ISOInjectDrivers"
-                                                      Content="Inject current system drivers"
+                                                      Content="دمج تعريفات النظام الحالي"
                                                       FontSize="{DynamicResource FontSize}"
                                                       Foreground="{DynamicResource MainForegroundColor}"
                                                       IsChecked="False"
                                                       Cursor="Hand"
-                                                      ToolTip="Injects boot-storage drivers for Setup and adds exported drivers to the selected install.wim edition individually, skipping incompatible packages."/>
+                                                      ToolTip="يدمج تعريفات وحدات التخزين اللازمة للإقلاع في برنامج الإعداد، ويضيف التعريفات المُصدَّرة إلى إصدار install.wim المختار واحدًا تلو الآخر متجاوزًا الحزم غير المتوافقة."/>
                                         </StackPanel>
                                     </Border>
 
                                     <Button Name="WPFWin11ISOModifyButton" Margin="0,0,0,20"
                                             Style="{StaticResource Win11StepButton}" Tag="&#xE768;"
-                                            Content="Run Windows ISO Modification and Creator"/>
+                                            Content="تشغيل تعديل ملف ISO وإنشائه"/>
 
                                     <Border Style="{StaticResource Win11InfoPanel}">
                                         <StackPanel>
-                                            <TextBlock Style="{StaticResource Win11StepLabel}" Margin="0,0,0,12" Text="What this does to the image"/>
+                                            <TextBlock Style="{StaticResource Win11StepLabel}" Margin="0,0,0,12" Text="ما الذي يفعله هذا بالصورة"/>
                                             <StackPanel Style="{StaticResource Win11SummaryRow}">
                                                 <TextBlock Text="&#xE74D;" Style="{StaticResource Win11SummaryIcon}"/>
                                                 <TextBlock Style="{StaticResource Win11StepBody}" Margin="0"
-                                                           Text="Removes the preinstalled apps and the OneDrive setup"/>
+                                                           Text="يزيل التطبيقات المثبتة مسبقًا وإعداد OneDrive"/>
                                             </StackPanel>
                                             <StackPanel Style="{StaticResource Win11SummaryRow}">
                                                 <TextBlock Text="&#xE950;" Style="{StaticResource Win11SummaryIcon}"/>
                                                 <TextBlock Style="{StaticResource Win11StepBody}" Margin="0"
-                                                           Text="Bypasses the TPM, Secure Boot, CPU, RAM and storage checks"/>
+                                                           Text="يتجاوز فحوصات TPM والإقلاع الآمن والمعالج والذاكرة والتخزين"/>
                                             </StackPanel>
                                             <StackPanel Style="{StaticResource Win11SummaryRow}">
                                                 <TextBlock Text="&#xE77B;" Style="{StaticResource Win11SummaryIcon}"/>
                                                 <TextBlock Style="{StaticResource Win11StepBody}" Margin="0"
-                                                           Text="Skips the Microsoft account screen so you can use a local account"/>
+                                                           Text="يتخطى شاشة حساب مايكروسوفت لتتمكن من استخدام حساب محلي"/>
                                             </StackPanel>
                                             <StackPanel Style="{StaticResource Win11SummaryRow}">
                                                 <TextBlock Text="&#xE7EE;" Style="{StaticResource Win11SummaryIcon}"/>
                                                 <TextBlock Style="{StaticResource Win11StepBody}" Margin="0"
-                                                           Text="Turns off telemetry, Copilot, the chat icon and search box suggestions"/>
+                                                           Text="يوقف القياس عن بُعد وCopilot وأيقونة الدردشة واقتراحات مربع البحث"/>
                                             </StackPanel>
                                             <StackPanel Style="{StaticResource Win11SummaryRow}" Margin="0">
                                                 <TextBlock Text="&#xE8EF;" Style="{StaticResource Win11SummaryIcon}"/>
                                                 <TextBlock Style="{StaticResource Win11StepBody}" Margin="0"
-                                                           Text="Pins the edition you picked above so Setup does not choose another one"/>
+                                                           Text="يثبّت الإصدار الذي اخترته أعلاه حتى لا يختار برنامج الإعداد غيره"/>
                                             </StackPanel>
                                         </StackPanel>
                                     </Border>
@@ -2008,10 +2008,10 @@
                             </TabItem>
 
                             <!-- ─── STEP 3 : Output Options ───────────────────────── -->
-                            <TabItem Name="WPFWin11ISOOutputSection" IsEnabled="False" Tag="&#xE88E;" Header="3   Output">
+                            <TabItem Name="WPFWin11ISOOutputSection" IsEnabled="False" Tag="&#xE88E;" Header="3   الإخراج">
                                 <StackPanel Style="{StaticResource Win11StepColumn}">
                                     <TextBlock Text="&#xE88E;" Style="{StaticResource Win11StepHero}"/>
-                                    <TextBlock Style="{StaticResource Win11StepTitle}" Text="Your image is ready"/>
+                                    <TextBlock Style="{StaticResource Win11StepTitle}" Text="الصورة جاهزة"/>
                                     <TextBlock Style="{StaticResource Win11StepSubtitle}">
                                         Save the modified image as an ISO file, or write it straight to a USB
                                         drive you can boot from.
@@ -2030,10 +2030,10 @@
                                     </Border>
 
                                     <Button Name="WPFWin11ISOChooseISOButton" Margin="0,0,0,10"
-                                            Style="{StaticResource Win11StepButton}" Tag="&#xE74E;" Content="Save as an ISO File"/>
+                                            Style="{StaticResource Win11StepButton}" Tag="&#xE74E;" Content="حفظ كملف ISO"/>
                                     <Button Name="WPFWin11ISOChooseUSBButton" Foreground="OrangeRed"
                                             Style="{StaticResource Win11StepButton}" Tag="&#xE88E;"
-                                            Content="Write Directly to a USB Drive (ERASES DRIVE)"/>
+                                            Content="الكتابة مباشرة على وحدة USB (تمسح محتواها)"/>
 
                                     <Border Name="WPFWin11ISOOptionUSB"
                                             Style="{StaticResource Win11FormPanel}"
@@ -2043,7 +2043,7 @@
                                             <TextBlock Style="{StaticResource Win11StepBody}">
                                                 <Run FontWeight="Bold" Foreground="OrangeRed">!! All data on the selected USB drive will be permanently erased !!</Run>
                                             </TextBlock>
-                                            <TextBlock Style="{StaticResource Win11StepLabel}" Text="USB drive"/>
+                                            <TextBlock Style="{StaticResource Win11StepLabel}" Text="وحدة USB"/>
                                             <Grid Margin="0,0,0,12">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
@@ -2057,10 +2057,10 @@
                                                           Height="34"
                                                           Margin="0,0,12,0"/>
                                                 <Button Grid.Column="1" Name="WPFWin11ISORefreshUSBButton" MinWidth="130"
-                                                        Style="{StaticResource Win11StepButton}" Tag="&#xE895;" Content="Refresh"/>
+                                                        Style="{StaticResource Win11StepButton}" Tag="&#xE895;" Content="تحديث"/>
                                             </Grid>
                                             <Button Name="WPFWin11ISOWriteUSBButton" Foreground="OrangeRed"
-                                                    Style="{StaticResource Win11StepButton}" Tag="&#xE7BA;" Content="Erase &amp; Write to USB"/>
+                                                    Style="{StaticResource Win11StepButton}" Tag="&#xE7BA;" Content="مسح الوحدة والكتابة عليها"/>
                                         </StackPanel>
                                     </Border>
 
@@ -2068,11 +2068,11 @@
                                             Margin="0,20,0,0" Padding="0,14,0,0">
                                         <StackPanel>
                                             <TextBlock Style="{StaticResource Win11StepSubtitle}" Margin="0,0,0,10"
-                                                       Text="Done with this image? Clear the temporary files and start again from step 1."/>
+                                                       Text="انتهيت من هذه الصورة؟ امسح الملفات المؤقتة وابدأ من جديد من الخطوة 1."/>
                                             <Button Name="WPFWin11ISOCleanResetButton"
                                                     HorizontalAlignment="Center" MinWidth="240"
-                                                    Style="{StaticResource Win11StepButton}" Tag="&#xE72C;" Content="Start Over"
-                                                    ToolTip="Delete the temporary working directory and go back to the first step"/>
+                                                    Style="{StaticResource Win11StepButton}" Tag="&#xE72C;" Content="البدء من جديد"
+                                                    ToolTip="حذف مجلد العمل المؤقت والعودة إلى الخطوة الأولى"/>
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
@@ -2139,10 +2139,10 @@
                                     </TextBlock>
                                     <TextBlock Name="WPFWin11ISOWorkingLabel"
                                                Style="{StaticResource Win11StepTitle}"
-                                               Text="Working..."/>
+                                               Text="جارٍ العمل..."/>
                                     <TextBlock Style="{StaticResource Win11StepSubtitle}"
                                                Margin="0"
-                                               Text="This can take several minutes. Progress is written to the status log."/>
+                                               Text="قد يستغرق هذا عدة دقائق. يُكتب التقدم في سجل الحالة."/>
                                 </StackPanel>
                             </TabItem>
                         </TabControl>
@@ -2167,7 +2167,7 @@
                                            Background="Transparent"
                                            Foreground="{DynamicResource LabelboxForegroundColor}"
                                            VerticalAlignment="Center"
-                                           Text="Status Log"/>
+                                           Text="سجل الحالة"/>
                             </StackPanel>
                             <Border Grid.Row="1"
                                     BorderBrush="{DynamicResource BorderColor}"
@@ -2189,7 +2189,7 @@
                                          Foreground="{DynamicResource MainForegroundColor}"
                                          BorderThickness="0"
                                          Effect="{x:Null}"
-                                         Text="Ready. Please select a Windows 11 ISO to begin."/>
+                                         Text="جاهز. اختر ملف ISO لويندوز 11 للبدء."/>
                             </Border>
                         </Grid>
                     </Border>
@@ -2212,12 +2212,12 @@
                             </Grid.RowDefinitions>
 
                             <StackPanel Background="{DynamicResource MainBackgroundColor}" Orientation="Vertical" Grid.Row="0" Grid.Column="0" Margin="5">
-                                <Label Content="Selections:" FontSize="{DynamicResource FontSize}" VerticalAlignment="Center" Margin="2"/>
+                                <Label Content="التحديد:" FontSize="{DynamicResource FontSize}" VerticalAlignment="Center" Margin="2"/>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,2,0,0">
-                                    <Button Name="WPFDefaultAppxSelection" Content=" Default " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
-                                    <Button Name="WPFGetInstalledAppx" Content=" Select Installed " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
-                                    <Button Name="WPFSelectAllAppx" Content=" Select All " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
-                                    <Button Name="WPFClearAppxSelection" Content=" Clear Selection " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFDefaultAppxSelection" Content=" الافتراضي " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFGetInstalledAppx" Content=" تحديد المثبّت " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFSelectAllAppx" Content=" تحديد الكل " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFClearAppxSelection" Content=" مسح التحديد " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                 </StackPanel>
                             </StackPanel>
 
@@ -2238,9 +2238,9 @@
 
                     <Border Grid.Row="1" Background="{DynamicResource MainBackgroundColor}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="5" HorizontalAlignment="Stretch" Padding="10">
                         <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-                            <Button Name="WPFBackToTweaks" Content="Back to Tweaks" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
-                            <Button Name="WPFInstallSelectedAppx" Content="Install Selected" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
-                            <Button Name="WPFRemoveSelectedAppx" Content="Remove Selected" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                            <Button Name="WPFBackToTweaks" Content="العودة إلى التحسينات" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                            <Button Name="WPFInstallSelectedAppx" Content="تثبيت المحدد" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                            <Button Name="WPFRemoveSelectedAppx" Content="إزالة المحدد" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                         </WrapPanel>
                     </Border>
                 </Grid>

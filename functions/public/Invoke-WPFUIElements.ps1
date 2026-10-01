@@ -1,4 +1,4 @@
-function Invoke-WPFUIElements {
+﻿function Invoke-WPFUIElements {
     <#
     .SYNOPSIS
         Adds UI elements to a specified Grid in the WinUtil GUI based on a JSON configuration.
@@ -156,7 +156,7 @@ function Invoke-WPFUIElements {
         foreach ($category in ($organizedData[$panelKey].Keys | Sort-Object)) {
 
             $label = New-Object Windows.Controls.Label
-            $categoryCleanName = $category -replace ".*__", ""
+            $categoryCleanName = Get-WinUtilCategoryDisplayName -Category $category
             $label.Content = $categoryCleanName
             $label.Focusable = $true
             $label.IsTabStop = $true
@@ -342,9 +342,9 @@ function Invoke-WPFUIElements {
                                 $comboBox.SelectedIndex = @($comboBox.Items.Content).IndexOf([string]$comboBox.Tag.State)
                             } catch {
                                 $unknownStateItem = New-Object Windows.Controls.ComboBoxItem
-                                $unknownStateItem.Content = "Custom / Unknown - select a state"
+                                $unknownStateItem.Content = "مخصص / غير معروف - اختر حالة"
                                 $unknownStateItem.IsEnabled = $false
-                                $unknownStateItem.ToolTip = "$($_.Exception.Message) Select one of the supported states to replace these values."
+                                $unknownStateItem.ToolTip = "$($_.Exception.Message) اختر إحدى الحالات المدعومة لاستبدال هذه القيم."
                                 $comboBox.Items.Add($unknownStateItem) | Out-Null
                                 $comboBox.SelectedItem = $unknownStateItem
                                 $comboBox.ToolTip = $unknownStateItem.ToolTip
@@ -371,16 +371,16 @@ function Invoke-WPFUIElements {
                                         Set-WinUtilRegistryComboState -Registry $registry -State $selectedItem.Content
                                         $this.Tag.State = $selectedItem.Content
                                         $this.ToolTip = $null
-                                        $unknownStateItem = @($this.Items) | Where-Object Content -EQ "Custom / Unknown - select a state" | Select-Object -First 1
+                                        $unknownStateItem = @($this.Items) | Where-Object Content -EQ "مخصص / غير معروف - اختر حالة" | Select-Object -First 1
                                         if ($unknownStateItem) {
                                             $this.Items.Remove($unknownStateItem)
                                         }
                                     } catch {
                                         $applyError = $_.Exception.Message
                                         if ([string]::IsNullOrWhiteSpace($applyError)) {
-                                            $applyError = "Unable to apply registry state '$($selectedItem.Content)'."
+                                            $applyError = "تعذّر تطبيق حالة السجل '$($selectedItem.Content)'."
                                         }
-                                        $previousState = if ($this.Tag.State) { $this.Tag.State } else { "Custom / Unknown - select a state" }
+                                        $previousState = if ($this.Tag.State) { $this.Tag.State } else { "مخصص / غير معروف - اختر حالة" }
                                         $this.SelectedItem = @($this.Items) | Where-Object Content -EQ $previousState | Select-Object -First 1
                                         [System.Windows.MessageBox]::Show(
                                             $applyError,

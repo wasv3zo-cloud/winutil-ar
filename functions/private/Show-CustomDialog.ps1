@@ -1,4 +1,4 @@
-function Show-CustomDialog {
+﻿function Show-CustomDialog {
     <#
     .SYNOPSIS
     Displays a custom dialog box with an image, heading, message, and an OK button.
@@ -186,6 +186,7 @@ function Show-CustomDialog {
     $messageTextBlock = New-Object Windows.Controls.TextBlock
     $messageTextBlock.FontSize = $FontSize
     $messageTextBlock.TextWrapping = [Windows.TextWrapping]::Wrap  # Enable text wrapping
+    $messageTextBlock.FlowDirection = [Windows.FlowDirection]::RightToLeft  # Arabic text reads right to left
     $messageTextBlock.HorizontalAlignment = [Windows.HorizontalAlignment]::Left
     $messageTextBlock.VerticalAlignment = [Windows.VerticalAlignment]::Top
     $messageTextBlock.Margin = New-Object Windows.Thickness(10)  # Add margins around the text block
@@ -262,7 +263,7 @@ function Show-CustomDialog {
 
     # Add OK button
     $okButton = New-Object Windows.Controls.Button
-    $okButton.Content = "OK"
+    $okButton.Content = "موافق"
     $okButton.FontSize = $FontSize
     $okButton.Width = 80
     $okButton.Height = 30

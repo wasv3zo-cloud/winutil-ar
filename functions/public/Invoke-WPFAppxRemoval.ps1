@@ -1,4 +1,4 @@
-function Invoke-WPFAppxRemoval {
+﻿function Invoke-WPFAppxRemoval {
     <#
 
     .SYNOPSIS
@@ -7,11 +7,11 @@ function Invoke-WPFAppxRemoval {
     #>
 
     if ($null -eq $sync.selectedAppx -or $sync.selectedAppx.Count -eq 0) {
-        Show-WinUtilMessage -Message "No AppX Package selected" -Title "Error" -Button "OK" -Icon "Error"
+        Show-WinUtilMessage -Message "لم تحدد أي حزمة AppX" -Title "خطأ" -Button "OK" -Icon "Error"
         return
     }
 
-    Start-WinUtilJob -Name "AppX" -Description "Removing AppX packages" -Parameters @{
+    Start-WinUtilJob -Name "AppX" -Description "إزالة حزم AppX" -Parameters @{
         Selected = @($sync.selectedAppx)
         Apps = $sync.configs.appxHashtable
     } -ScriptBlock {
@@ -25,7 +25,7 @@ function Invoke-WPFAppxRemoval {
             $key = $Selected[$index]
             $app = $Apps[$key]
             $position = $index + 1
-            Step-WinUtilJob -Status "Removing $($app.Content) ($position/$total)" -Percent ([int](($index / $total) * 90))
+            Step-WinUtilJob -Status "جارٍ إزالة $($app.Content) ($position/$total)" -Percent ([int](($index / $total) * 90))
 
             if ($key -eq "WPFAppxMicrosoft_XboxGamingOverlay") {
                 # Making sure Game Bar isn't running
@@ -53,11 +53,11 @@ function Invoke-WPFAppxRemoval {
                 Get-Package -Name "Microsoft Teams*" -ErrorAction SilentlyContinue | Uninstall-Package -Force
             }
 
-            Step-WinUtilJob -Status "Removed $($app.Content) ($position/$total)" -Percent ([int](($position / $total) * 90))
+            Step-WinUtilJob -Status "تمت إزالة $($app.Content) ($position/$total)" -Percent ([int](($position / $total) * 90))
         }
 
         if ($packageList.Count -gt 0) {
-            Step-WinUtilJob -Status "Removing provisioned AppX packages" -Percent 90
+            Step-WinUtilJob -Status "جارٍ إزالة حزم AppX المجهّزة مسبقًا" -Percent 90
             Remove-WinUtilProvisionedAPPX -PackageList $packageList.ToArray()
         }
     }

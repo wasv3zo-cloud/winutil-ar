@@ -1,4 +1,4 @@
-function Invoke-WPFtweaksbutton {
+﻿function Invoke-WPFtweaksbutton {
   <#
 
     .SYNOPSIS
@@ -13,13 +13,13 @@ function Invoke-WPFtweaksbutton {
   }
 
   if ($Tweaks.count -eq 0 -and $dnsProvider -eq "Default") {
-    Show-WinUtilMessage -Message "Please check the tweaks you wish to perform." -Title "WinUtil" -Button "OK" -Icon "Warning"
+    Show-WinUtilMessage -Message "يرجى تحديد التحسينات التي تريد تطبيقها." -Title "WinUtil" -Button "OK" -Icon "Warning"
     return
   }
 
   Write-WinUtilLog -Component "Tweaks" -Message "Tweaks requested: $(@($Tweaks).Count) selected tweak(s), DNS provider: $dnsProvider"
 
-  Start-WinUtilJob -Name "Tweaks" -Description "Applying tweaks" -Parameters @{
+  Start-WinUtilJob -Name "Tweaks" -Description "تطبيق التحسينات" -Parameters @{
     Tweaks = @($Tweaks)
     DnsProvider = $dnsProvider
   } -ScriptBlock {
@@ -32,7 +32,7 @@ function Invoke-WPFtweaksbutton {
     $completedSteps = 0
 
     if ($Tweaks -contains $restorePointTweak) {
-      Step-WinUtilJob -Status "Creating restore point" -Percent 0
+      Step-WinUtilJob -Status "جارٍ إنشاء نقطة استعادة" -Percent 0
       Write-WinUtilLog -Component "Tweaks" -Message "Creating restore point before applying selected tweaks."
       Measure-WinUtilStep -Scope "Tweaks" -Name $restorePointTweak -ScriptBlock {
         Invoke-WinUtilTweaks $restorePointTweak
@@ -53,7 +53,7 @@ function Invoke-WPFtweaksbutton {
     }
 
     foreach ($tweak in $tweaksToRun) {
-      Step-WinUtilJob -Status "Applying $tweak ($($completedSteps + 1)/$totalSteps)" -Percent ([int](($completedSteps / $totalSteps) * 100))
+      Step-WinUtilJob -Status "جارٍ تطبيق $tweak ($($completedSteps + 1)/$totalSteps)" -Percent ([int](($completedSteps / $totalSteps) * 100))
       Measure-WinUtilStep -Scope "Tweaks" -Name $tweak -ScriptBlock {
         Invoke-WinUtilTweaks $tweak
       }

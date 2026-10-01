@@ -1,4 +1,4 @@
-#===========================================================================
+﻿#===========================================================================
 # Tests - AppX Management
 #===========================================================================
 
@@ -417,8 +417,8 @@ Describe "Invoke-WPFAppxInstall" {
         Invoke-WPFAppxInstall
 
         Should -Invoke -CommandName Show-WinUtilMessage -Times 1 -Exactly -ParameterFilter {
-            $Message -eq "No AppX Package selected" -and
-                $Title -eq "Error" -and
+            $Message -eq "لم تحدد أي حزمة AppX" -and
+                $Title -eq "خطأ" -and
                 $Button -eq "OK" -and
                 $Icon -eq "Error"
         }
@@ -447,10 +447,10 @@ Describe "Invoke-WPFAppxInstall" {
             $Name -eq "Example.Package" -and $StoreId -eq "9EXAMPLE1234"
         }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Installing Example App (1/1)" -and $Percent -eq 0
+            $Status -eq "جارٍ تثبيت Example App (1/1)" -and $Percent -eq 0
         }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Installed Example App (1/1)" -and $Percent -eq 100
+            $Status -eq "تم تثبيت Example App (1/1)" -and $Percent -eq 100
         }
     }
 
@@ -485,7 +485,7 @@ Describe "Invoke-WPFAppxInstall" {
             $Action -eq "Install" -and $Results.Count -eq 1 -and $Results[0].Outcome -eq "Skipped"
         }
         Should -Invoke Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Skipped Example App (1/1)" -and $Percent -eq 100
+            $Status -eq "تم تخطي Example App (1/1)" -and $Percent -eq 100
         }
     }
 
@@ -558,8 +558,8 @@ Describe "Invoke-WPFAppxRemoval" {
         Invoke-WPFAppxRemoval
 
         Should -Invoke -CommandName Show-WinUtilMessage -Times 1 -Exactly -ParameterFilter {
-            $Message -eq "No AppX Package selected" -and
-                $Title -eq "Error" -and
+            $Message -eq "لم تحدد أي حزمة AppX" -and
+                $Title -eq "خطأ" -and
                 $Button -eq "OK" -and
                 $Icon -eq "Error"
         }
@@ -600,13 +600,13 @@ Describe "Invoke-WPFAppxRemoval" {
             $PackageList.Count -eq 1 -and $PackageList[0] -eq "Example.Package"
         }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Removing Example App (1/1)" -and $Percent -eq 0
+            $Status -eq "جارٍ إزالة Example App (1/1)" -and $Percent -eq 0
         }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Removed Example App (1/1)" -and $Percent -eq 90
+            $Status -eq "تمت إزالة Example App (1/1)" -and $Percent -eq 90
         }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Removing provisioned AppX packages" -and $Percent -eq 90
+            $Status -eq "جارٍ إزالة حزم AppX المجهّزة مسبقًا" -and $Percent -eq 90
         }
     }
 

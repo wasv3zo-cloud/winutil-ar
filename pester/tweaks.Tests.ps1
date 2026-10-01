@@ -1,4 +1,4 @@
-#===========================================================================
+﻿#===========================================================================
 # Tests - Tweak Orchestration
 #===========================================================================
 
@@ -298,7 +298,7 @@ Describe "Invoke-WPFtweaksbutton" {
         Invoke-WPFtweaksbutton
 
         Should -Invoke -CommandName Show-WinUtilMessage -Times 1 -Exactly -ParameterFilter {
-            $Message -eq "Please check the tweaks you wish to perform."
+            $Message -eq "يرجى تحديد التحسينات التي تريد تطبيقها."
         }
         Should -Invoke -CommandName Start-WinUtilJob -Times 0 -Exactly
     }
@@ -330,10 +330,10 @@ Describe "Invoke-WPFtweaksbutton" {
         }
         Should -Invoke -CommandName Invoke-WinUtilTweaks -Times 2 -Exactly
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Applying WPFTweaksTelemetry (1/2)" -and $Percent -eq 0
+            $Status -eq "جارٍ تطبيق WPFTweaksTelemetry (1/2)" -and $Percent -eq 0
         }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Applying WPFTweaksServices (2/2)" -and $Percent -eq 50
+            $Status -eq "جارٍ تطبيق WPFTweaksServices (2/2)" -and $Percent -eq 50
         }
     }
 
@@ -372,10 +372,10 @@ Describe "Invoke-WPFtweaksbutton" {
 
         $script:appliedOrder | Should -Be @("WPFTweaksRestorePoint", "WPFTweaksTelemetry")
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Creating restore point" -and $Percent -eq 0
+            $Status -eq "جارٍ إنشاء نقطة استعادة" -and $Percent -eq 0
         }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Applying WPFTweaksTelemetry (2/2)" -and $Percent -eq 50
+            $Status -eq "جارٍ تطبيق WPFTweaksTelemetry (2/2)" -and $Percent -eq 50
         }
     }
 }
@@ -410,7 +410,7 @@ Describe "Invoke-WPFundoall" {
         Invoke-WPFundoall
 
         Should -Invoke -CommandName Show-WinUtilMessage -Times 1 -Exactly -ParameterFilter {
-            $Message -eq "Please check the tweaks you wish to undo."
+            $Message -eq "يرجى تحديد التحسينات التي تريد التراجع عنها."
         }
         Should -Invoke -CommandName Start-WinUtilJob -Times 0 -Exactly
     }
@@ -429,10 +429,10 @@ Describe "Invoke-WPFundoall" {
 
         Should -Invoke -CommandName Invoke-WinUtilTweaks -Times 2 -Exactly -ParameterFilter { $undo -eq $true }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Undoing WPFTweaksTelemetry (1/2)" -and $Percent -eq 0
+            $Status -eq "جارٍ التراجع عن WPFTweaksTelemetry (1/2)" -and $Percent -eq 0
         }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "Undoing WPFTweaksServices (2/2)" -and $Percent -eq 50
+            $Status -eq "جارٍ التراجع عن WPFTweaksServices (2/2)" -and $Percent -eq 50
         }
     }
 }

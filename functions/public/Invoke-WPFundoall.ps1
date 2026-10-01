@@ -1,4 +1,4 @@
-function Invoke-WPFundoall {
+﻿function Invoke-WPFundoall {
     <#
 
     .SYNOPSIS
@@ -9,11 +9,11 @@ function Invoke-WPFundoall {
     $tweaks = $sync.selectedTweaks
 
     if ($tweaks.count -eq 0) {
-        Show-WinUtilMessage -Message "Please check the tweaks you wish to undo." -Title "WinUtil" -Button "OK" -Icon "Warning"
+        Show-WinUtilMessage -Message "يرجى تحديد التحسينات التي تريد التراجع عنها." -Title "WinUtil" -Button "OK" -Icon "Warning"
         return
     }
 
-    Start-WinUtilJob -Name "Undo tweaks" -Description "Undoing tweaks" -Parameters @{
+    Start-WinUtilJob -Name "Undo tweaks" -Description "التراجع عن التحسينات" -Parameters @{
         Tweaks = @($tweaks)
     } -ScriptBlock {
         param($Tweaks)
@@ -22,7 +22,7 @@ function Invoke-WPFundoall {
         Write-WinUtilLog -Component "Tweaks" -Message "Undo tweaks requested: $total selected tweak(s)."
 
         for ($i = 0; $i -lt $total; $i++) {
-            Step-WinUtilJob -Status "Undoing $($Tweaks[$i]) ($($i + 1)/$total)" -Percent ([int](($i / $total) * 100))
+            Step-WinUtilJob -Status "جارٍ التراجع عن $($Tweaks[$i]) ($($i + 1)/$total)" -Percent ([int](($i / $total) * 100))
             Measure-WinUtilStep -Scope "Undo tweaks" -Name $Tweaks[$i] -ScriptBlock {
                 Invoke-WinUtiltweaks $Tweaks[$i] -undo $true
             }

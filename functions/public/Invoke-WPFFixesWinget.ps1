@@ -1,4 +1,4 @@
-function Invoke-WPFFixesWinget {
+﻿function Invoke-WPFFixesWinget {
 
     <#
 
@@ -8,6 +8,6 @@ function Invoke-WPFFixesWinget {
         BravoNorris for the fantastic idea of a button to reinstall WinGet
     #>
 
-    Step-WinUtilJob -Status "Repairing WinGet" -State "Indeterminate"
+    Step-WinUtilJob -Status "جارٍ إصلاح WinGet" -State "Indeterminate"
     Install-WinUtilWinget -Force
 }

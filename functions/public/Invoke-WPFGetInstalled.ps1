@@ -1,4 +1,4 @@
-function Invoke-WPFGetInstalled {
+﻿function Invoke-WPFGetInstalled {
     <#
     .SYNOPSIS
         Detects what is already installed or applied and ticks the matching boxes
@@ -13,13 +13,13 @@ function Invoke-WPFGetInstalled {
         return
     }
 
-    Start-WinUtilJob -Name "Detect installed" -Description "Checking what is already installed" -Parameters @{
+    Start-WinUtilJob -Name "Detect installed" -Description "التحقق مما هو مثبّت" -Parameters @{
         Checkbox = $checkbox
         ManagerPreference = $sync.preferences.packagemanager
     } -ScriptBlock {
         param($Checkbox, $ManagerPreference)
 
-        Step-WinUtilJob -Status "Checking what is already installed" -State "Indeterminate"
+        Step-WinUtilJob -Status "جارٍ التحقق مما هو مثبّت" -State "Indeterminate"
 
         $found = @()
         if ($Checkbox -eq "winget") {

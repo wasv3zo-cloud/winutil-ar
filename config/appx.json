@@ -1,16 +1,16 @@
 {
   "WPFAppxMicrosoft_WindowsFeedbackHub": {
     "Category": "Microsoft Apps",
-    "Content": "Feedback Hub",
-    "Description": "Allows users to submit bug reports, feature suggestions, and diagnostic data directly to Microsoft.",
+    "Content": "مركز الملاحظات (Feedback Hub)",
+    "Description": "يتيح للمستخدمين إرسال تقارير الأخطاء واقتراحات الميزات وبيانات التشخيص مباشرة إلى مايكروسوفت.",
     "Panel": "0",
     "PackageId": "Microsoft.WindowsFeedbackHub",
     "StoreId": "9NBLGGH4R32N"
   },
   "WPFAppxMicrosoft_GetHelp": {
     "Category": "Microsoft Apps",
-    "Content": "Get Help",
-    "Description": "Provides access to automated troubleshooting guides, support documentation, and direct Microsoft customer assistance.",
+    "Content": "الحصول على المساعدة (Get Help)",
+    "Description": "يوفر أدلة استكشاف الأخطاء التلقائية ووثائق الدعم والتواصل المباشر مع دعم مايكروسوفت.",
     "Panel": "0",
     "PackageId": "Microsoft.GetHelp",
     "StoreId": "9PKDZBMV1H3T"
@@ -18,7 +18,7 @@
   "WPFAppxMicrosoft_OutlookForWindows": {
     "Category": "Microsoft Apps",
     "Content": "Outlook for Windows",
-    "Description": "Provides modern email management, calendar scheduling, and contact organization features.",
+    "Description": "يوفر إدارة حديثة للبريد الإلكتروني وجدولة التقويم وتنظيم جهات الاتصال.",
     "Panel": "0",
     "PackageId": "Microsoft.OutlookForWindows",
     "StoreId": "9NRX63209R7B"
@@ -26,7 +26,7 @@
   "WPFAppxMSTeams": {
     "Category": "Microsoft Apps",
     "Content": "Microsoft Teams",
-    "Description": "Facilitates instant messaging, video conferencing, file sharing, and workspace collaboration.",
+    "Description": "يسهّل المراسلة الفورية ومؤتمرات الفيديو ومشاركة الملفات والتعاون في مساحات العمل.",
     "Panel": "0",
     "PackageId": "MSTeams",
     "StoreId": "XP8BT8DW290MPQ"
@@ -34,7 +34,7 @@
   "WPFAppxClipchamp_Clipchamp": {
     "Category": "Utilities & Productivity",
     "Content": "Clipchamp",
-    "Description": "Provides a user-friendly video editor with built-in templates, effects, and timeline editing tools.",
+    "Description": "محرر فيديو سهل الاستخدام يتضمن قوالب وتأثيرات وأدوات تحرير بالخط الزمني.",
     "Panel": "0",
     "PackageId": "Clipchamp.Clipchamp",
     "StoreId": "9P1J8S7CCWWT"
@@ -42,31 +42,31 @@
   "WPFAppxMicrosoft_MicrosoftOfficeHub": {
     "Category": "Microsoft Apps",
     "Content": "Microsoft 365",
-    "Description": "Serves as a centralized launcher and dashboard for accessing cloud-based Microsoft 365 apps and recent documents.",
+    "Description": "مشغّل ولوحة مركزية للوصول إلى تطبيقات Microsoft 365 السحابية والمستندات الأخيرة.",
     "Panel": "0",
     "PackageId": "Microsoft.MicrosoftOfficeHub",
     "StoreId": "9WZDNCRD29V9"
   },
   "WPFAppxMicrosoft_ZuneMusic": {
     "Category": "Utilities & Productivity",
-    "Content": "Media Player",
-    "Description": "Plays local audio and video files with modern playlist management and casting capabilities.",
+    "Content": "مشغّل الوسائط (Media Player)",
+    "Description": "يشغّل ملفات الصوت والفيديو المحلية مع إدارة حديثة لقوائم التشغيل وإمكانية البث.",
     "Panel": "0",
     "PackageId": "Microsoft.ZuneMusic",
     "StoreId": "9WZDNCRFJ3PT"
   },
   "WPFAppxMicrosoft_BingSearch": {
     "Category": "Bing & Web Services",
-    "Content": "Bing Search",
-    "Description": "Integrates Microsoft Bing search capabilities and web services directly into the operating system.",
+    "Content": "بحث Bing",
+    "Description": "يدمج إمكانات بحث Bing وخدمات الويب من مايكروسوفت مباشرة في نظام التشغيل.",
     "Panel": "1",
     "PackageId": "Microsoft.BingSearch",
     "StoreId": "9NZBF4GT040C"
   },
   "WPFAppxMicrosoftCorporationII_QuickAssist": {
     "Category": "Utilities & Productivity",
-    "Content": "Quick Assist",
-    "Description": "Enables secure remote technical support and screen sharing over an internet connection.",
+    "Content": "المساعد السريع (Quick Assist)",
+    "Description": "يتيح الدعم الفني عن بُعد ومشاركة الشاشة بأمان عبر الإنترنت.",
     "Panel": "0",
     "PackageId": "MicrosoftCorporationII.QuickAssist",
     "StoreId": "9P7BP5VNWKX5"
@@ -74,23 +74,23 @@
   "WPFAppxMicrosoft_WindowsDevHome": {
     "Category": "Developer Tools",
     "Content": "Dev Home",
-    "Description": "Provides a specialized dashboard for software developer environment setups, repository syncing, and hardware widgets.",
+    "Description": "لوحة متخصصة لإعداد بيئات المطورين ومزامنة المستودعات وأدوات مراقبة العتاد.",
     "Panel": "1",
     "PackageId": "Microsoft.Windows.DevHome",
     "StoreId": "9N8MHTPHNGVV"
   },
   "WPFAppxMicrosoft_WindowsCrossDevice": {
     "Category": "Microsoft Ecosystem",
-    "Content": "Mobile Devices",
-    "Description": "Manages system-level background connectivity with paired mobile devices. Removing this may disable cross-device features such as phone screen mirroring, file transfer, and mobile hotspot handoff integrated into Windows Settings.",
+    "Content": "الأجهزة المحمولة (Mobile Devices)",
+    "Description": "يدير الاتصال في الخلفية مع الأجهزة المحمولة المقترنة. إزالته قد تعطّل ميزات الربط بين الأجهزة مثل عرض شاشة الهاتف ونقل الملفات ونقطة الاتصال المدمجة في إعدادات ويندوز.",
     "Panel": "0",
     "PackageId": "MicrosoftWindows.CrossDevice",
     "StoreId": "9NTXGKQ8P7N0"
   },
   "WPFAppxMicrosoft_Todos": {
     "Category": "Utilities & Productivity",
-    "Content": "To Do",
-    "Description": "Creates, tracks, and synchronizes personal tasks, smart lists, and daily reminders.",
+    "Content": "المهام (To Do)",
+    "Description": "ينشئ المهام الشخصية والقوائم الذكية والتذكيرات اليومية ويتابعها ويزامنها.",
     "Panel": "0",
     "PackageId": "Microsoft.Todos",
     "StoreId": "9NBLGGH5R558"
@@ -98,63 +98,63 @@
   "WPFAppxMicrosoft_PowerAutomateDesktop": {
     "Category": "Developer Tools",
     "Content": "Power Automate",
-    "Description": "Automates repetitive workflows and desktop tasks using low-code visual scripting.",
+    "Description": "يؤتمت سير العمل المتكرر ومهام سطح المكتب باستخدام برمجة مرئية منخفضة الكود.",
     "Panel": "1",
     "PackageId": "Microsoft.PowerAutomateDesktop",
     "StoreId": "9NFTCH6J7FHV"
   },
   "WPFAppxMicrosoft_YourPhone": {
     "Category": "Microsoft Ecosystem",
-    "Content": "Phone Link",
-    "Description": "Synchronizes text messages, phone notifications, photos, and calls from a mobile device to the desktop.",
+    "Content": "ربط الهاتف (Phone Link)",
+    "Description": "يزامن الرسائل النصية وإشعارات الهاتف والصور والمكالمات من الجوال إلى الكمبيوتر.",
     "Panel": "0",
     "PackageId": "Microsoft.YourPhone",
     "StoreId": "9NMPJ99VJBWV"
   },
   "WPFAppxMicrosoft_MicrosoftStickyNotes": {
     "Category": "Utilities & Productivity",
-    "Content": "Sticky Notes",
-    "Description": "Creates quick, floating text notes on the desktop that automatically sync across devices.",
+    "Content": "الملاحظات اللاصقة (Sticky Notes)",
+    "Description": "ينشئ ملاحظات نصية سريعة عائمة على سطح المكتب تتزامن تلقائيًا بين الأجهزة.",
     "Panel": "0",
     "PackageId": "Microsoft.MicrosoftStickyNotes",
     "StoreId": "9NBLGGH4QGHW"
   },
   "WPFAppxMicrosoft_WindowsSoundRecorder": {
     "Category": "Utilities & Productivity",
-    "Content": "Sound Recorder",
-    "Description": "Records and trims live audio inputs with simple microphone adjustment controls.",
+    "Content": "مسجّل الصوت",
+    "Description": "يسجّل الصوت ويقصّه مع أدوات بسيطة لضبط الميكروفون.",
     "Panel": "0",
     "PackageId": "Microsoft.WindowsSoundRecorder",
     "StoreId": "9WZDNCRFHWKN"
   },
   "WPFAppxMicrosoft_WindowsAlarms": {
     "Category": "Utilities & Productivity",
-    "Content": "Clock",
-    "Description": "Features world clocks, alarms, countdown timers, stopwatches, and dedicated focus session tracking.",
+    "Content": "الساعة",
+    "Description": "يتضمن الساعات العالمية والمنبهات والمؤقتات وساعة الإيقاف وجلسات التركيز.",
     "Panel": "0",
     "PackageId": "Microsoft.WindowsAlarms",
     "StoreId": "9WZDNCRFJ3PR"
   },
   "WPFAppxMicrosoft_Paint": {
     "Category": "Utilities & Productivity",
-    "Content": "Paint",
-    "Description": "Provides built-in digital sketching, basic image editing, and pixel-level graphic manipulation tools.",
+    "Content": "الرسام (Paint)",
+    "Description": "يوفر أدوات الرسم الرقمي وتحرير الصور الأساسي والتعديل على مستوى البكسل.",
     "Panel": "0",
     "PackageId": "Microsoft.Paint",
     "StoreId": "9PCFS5B6T72H"
   },
   "WPFAppxMicrosoft_WindowsNotepad": {
     "Category": "Utilities & Productivity",
-    "Content": "Notepad",
-    "Description": "Provides a lightweight text editor with multi-tab support for plain text files and code snippets.",
+    "Content": "المفكرة (Notepad)",
+    "Description": "محرر نصوص خفيف يدعم التبويبات المتعددة للملفات النصية ومقتطفات الكود.",
     "Panel": "0",
     "PackageId": "Microsoft.WindowsNotepad",
     "StoreId": "9MSMLRH6LZF3"
   },
   "WPFAppxMicrosoft_ScreenSketch": {
     "Category": "Utilities & Productivity",
-    "Content": "Snipping Tool",
-    "Description": "Captures screenshots or screen recordings with built-in markup, image cropping, and optical character recognition (OCR).",
+    "Content": "أداة القصّ (Snipping Tool)",
+    "Description": "يلتقط صور الشاشة أو يسجّلها مع أدوات التعليق والقص والتعرف الضوئي على النصوص (OCR).",
     "Panel": "0",
     "PackageId": "Microsoft.ScreenSketch",
     "StoreId": "9MZ95KL8MR0L"
@@ -162,55 +162,55 @@
   "WPFAppxMicrosoft_Copilot": {
     "Category": "Bing & Web Services",
     "Content": "Copilot",
-    "Description": "Launches the Microsoft AI companion for contextual answers, creative writing assistance, and intelligent web search.",
+    "Description": "يشغّل مساعد الذكاء الاصطناعي من مايكروسوفت للإجابات والمساعدة في الكتابة والبحث الذكي على الويب.",
     "Panel": "1",
     "PackageId": "Microsoft.Copilot",
     "StoreId": "9NHT9RB2F4HD"
   },
   "WPFAppxMicrosoft_WindowsCalculator": {
     "Category": "Utilities & Productivity",
-    "Content": "Calculator",
-    "Description": "Performs standard arithmetic, scientific operations, programming calculations, and unit conversions.",
+    "Content": "الآلة الحاسبة",
+    "Description": "يجري العمليات الحسابية العادية والعلمية والبرمجية وتحويل الوحدات.",
     "Panel": "0",
     "PackageId": "Microsoft.WindowsCalculator",
     "StoreId": "9WZDNCRFHVN5"
   },
   "WPFAppxMicrosoft_WindowsCamera": {
     "Category": "Utilities & Productivity",
-    "Content": "Camera",
-    "Description": "Captures photographs and records video files via connected webcams or imaging hardware.",
+    "Content": "الكاميرا",
+    "Description": "يلتقط الصور ويسجّل الفيديو عبر كاميرات الويب أو أجهزة التصوير المتصلة.",
     "Panel": "0",
     "PackageId": "Microsoft.WindowsCamera",
     "StoreId": "9WZDNCRFJBBG"
   },
   "WPFAppxMicrosoft_WindowsPhotos": {
     "Category": "Utilities & Productivity",
-    "Content": "Photos",
-    "Description": "Organizes, views, and crops local images with basic color adjustment and album creation tools.",
+    "Content": "الصور",
+    "Description": "ينظّم الصور المحلية ويعرضها ويقصّها مع أدوات أساسية لضبط الألوان وإنشاء الألبومات.",
     "Panel": "0",
     "PackageId": "Microsoft.Windows.Photos",
     "StoreId": "9WZDNCRFJBH4"
   },
   "WPFAppxMicrosoft_BingNews": {
     "Category": "Bing & Web Services",
-    "Content": "News",
-    "Description": "Aggregates breaking news headlines, personalized article feeds, and world current events.",
+    "Content": "الأخبار",
+    "Description": "يجمع العناوين العاجلة والمقالات المخصصة وأحداث العالم الجارية.",
     "Panel": "1",
     "PackageId": "Microsoft.BingNews",
     "StoreId": "9WZDNCRFHVFW"
   },
   "WPFAppxMicrosoft_BingWeather": {
     "Category": "Bing & Web Services",
-    "Content": "Weather",
-    "Description": "Displays local real-time weather tracking, radar maps, and historical meteorological forecasts.",
+    "Content": "الطقس",
+    "Description": "يعرض حالة الطقس المحلية لحظيًا وخرائط الرادار والتوقعات والبيانات السابقة.",
     "Panel": "1",
     "PackageId": "Microsoft.BingWeather",
     "StoreId": "9WZDNCRFJ3Q2"
   },
   "WPFAppxMicrosoft_GamingApp": {
     "Category": "Xbox & Gaming",
-    "Content": "Xbox App",
-    "Description": "Serves as the primary gaming library manager, social community interface, and PC Game Pass dashboard.",
+    "Content": "تطبيق Xbox",
+    "Description": "مدير مكتبة الألعاب الرئيسي وواجهة المجتمع ولوحة PC Game Pass.",
     "Panel": "1",
     "PackageId": "Microsoft.GamingApp",
     "StoreId": "9MV0B5HZVK9Z"
@@ -218,7 +218,7 @@
   "WPFAppxMicrosoft_XboxGamingOverlay": {
     "Category": "Xbox & Gaming",
     "Content": "Xbox Game Bar",
-    "Description": "Provides customizable in-game status widgets, audio balancing sliders, system monitoring tools, and gameplay recording.",
+    "Description": "يوفر أدوات قابلة للتخصيص داخل الألعاب وموازنة الصوت ومراقبة النظام وتسجيل اللعب.",
     "Panel": "1",
     "PackageId": "Microsoft.XboxGamingOverlay",
     "StoreId": "9NZKPSTSNW4P"
@@ -226,44 +226,44 @@
   "WPFAppxMicrosoft_XboxIdentityProvider": {
     "Category": "Xbox & Gaming",
     "Content": "Xbox Identity Provider",
-    "Description": "Manages Xbox network user authentication and background account validation for connected titles. Warning: removing this may break Microsoft account sign-in for non-Xbox games and apps that rely on this authentication pipeline.",
+    "Description": "يدير مصادقة مستخدمي شبكة Xbox والتحقق من الحساب في الخلفية. تحذير: إزالته قد تعطّل تسجيل الدخول بحساب مايكروسوفت في ألعاب وتطبيقات أخرى تعتمد على آلية المصادقة هذه.",
     "Panel": "1",
     "PackageId": "Microsoft.XboxIdentityProvider",
     "StoreId": "9WZDNCRD1HKW"
   },
   "WPFAppxMicrosoft_XboxSpeechToTextOverlay": {
     "Category": "Xbox & Gaming",
-    "Content": "Xbox Speech To Text Overlay",
-    "Description": "Provides system-level live accessibility captions and voice-to-text translation for gaming chat networks.",
+    "Content": "طبقة تحويل الكلام إلى نص في Xbox",
+    "Description": "يوفر ترجمة نصية مباشرة لتسهيل الوصول وتحويل الصوت إلى نص في محادثات الألعاب.",
     "Panel": "1",
     "PackageId": "Microsoft.XboxSpeechToTextOverlay"
   },
   "WPFAppxMicrosoft_Xbox_TCUI": {
     "Category": "Xbox & Gaming",
     "Content": "Xbox TCUI",
-    "Description": "Provides core account connection UI modules for single sign-on flows within game titles. Warning: removing this may break Microsoft account authentication in games and apps that do not otherwise require the Xbox app.",
+    "Description": "يوفر واجهات ربط الحساب الأساسية لتسجيل الدخول الموحد داخل الألعاب. تحذير: إزالته قد تعطّل مصادقة حساب مايكروسوفت في ألعاب وتطبيقات لا تحتاج تطبيق Xbox أصلًا.",
     "Panel": "1",
     "PackageId": "Microsoft.Xbox.TCUI"
   },
   "WPFAppxMicrosoft_StartExperiencesApp": {
     "Category": "Bing & Web Services",
-    "Content": "Start Experiences App",
-    "Description": "Powers the Windows Widgets board, delivering a personalized feed of news, weather, sports, and finance content.",
+    "Content": "تطبيق تجارب ابدأ (Start Experiences)",
+    "Description": "يشغّل لوحة الأدوات المصغّرة في ويندوز التي تعرض محتوى مخصصًا من الأخبار والطقس والرياضة والمال.",
     "Panel": "1",
     "PackageId": "Microsoft.StartExperiencesApp",
     "StoreId": "9PC1H9VN18CM"
   },
   "WPFAppxMicrosoft_MicrosoftSolitaireCollection": {
     "Category": "Xbox & Gaming",
-    "Content": "Solitaire Collection",
-    "Description": "Bundles built-in card game modes including Klondike, Spider, FreeCell, Pyramid, and TriPeaks alongside daily challenges.",
+    "Content": "مجموعة ألعاب السوليتير",
+    "Description": "تضم ألعاب ورق مدمجة منها Klondike وSpider وFreeCell وPyramid وTriPeaks إلى جانب التحديات اليومية.",
     "Panel": "1",
     "PackageId": "Microsoft.MicrosoftSolitaireCollection"
   },
   "WPFAppxMicrosoft_ZuneVideo": {
     "Category": "Utilities & Productivity",
-    "Content": "Movies & TV",
-    "Description": "The default video player and storefront for purchasing or renting media.",
+    "Content": "الأفلام والتلفزيون",
+    "Description": "مشغّل الفيديو الافتراضي ومتجر لشراء الأفلام أو استئجارها.",
     "Panel": "0",
     "PackageId": "Microsoft.ZuneVideo",
     "StoreId": "9WZDNCRFJ3P2"

@@ -1,4 +1,4 @@
-function Invoke-WPFFixesUpdate {
+﻿function Invoke-WPFFixesUpdate {
 
     <#
 
@@ -199,7 +199,7 @@ function Invoke-WPFFixesUpdate {
     Write-Progress -Id 10 -ParentId 0 -Activity "Forcing discovery" -Status "Completed" -PercentComplete 100
     Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Completed" -PercentComplete 100
 
-    Show-WinUtilMessage -Message "Stock settings loaded.`n Please reboot your computer" -Title "Reset Windows Update" -Button "OK" -Icon "Information" | Out-Null
+    Show-WinUtilMessage -Message "تم تحميل الإعدادات الافتراضية.`n يرجى إعادة تشغيل الكمبيوتر" -Title "إعادة ضبط Windows Update" -Button "OK" -Icon "Information" | Out-Null
 
     # Remove the progress bars
     Write-Progress -Id 0 -Activity "Repairing Windows Update" -Completed

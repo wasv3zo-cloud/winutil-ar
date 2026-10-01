@@ -1,4 +1,4 @@
-#===========================================================================
+﻿#===========================================================================
 # Tests - UI Selection and State Helpers
 #===========================================================================
 
@@ -335,7 +335,7 @@ Describe "Invoke-WPFImpex import selection state" {
             $Message -eq "Skipped unsupported legacy selections: WPFInstallRetired"
         }
         Should -Invoke -CommandName Show-WinUtilMessage -Times 1 -Exactly -ParameterFilter {
-            $Title -eq "Legacy Configuration Partially Imported" -and
+            $Title -eq "استيراد جزئي لملف إعدادات قديم" -and
             $Message -like "*WPFInstallRetired*"
         }
         Should -Invoke -CommandName Write-Error -Times 0 -Exactly
@@ -379,7 +379,7 @@ Describe "Invoke-WPFImpex import selection state" {
             $Message -eq "Skipped unsupported legacy selections: WPFInstallRetired"
         }
         Should -Invoke -CommandName Show-WinUtilMessage -Times 1 -Exactly -ParameterFilter {
-            $Title -eq "Unsupported Legacy Configuration"
+            $Title -eq "ملف إعدادات قديم غير مدعوم"
         }
         Should -Invoke -CommandName Write-Error -Times 0 -Exactly
     }
@@ -452,7 +452,7 @@ Describe "Invoke-WPFSelectedCheckboxesUpdate" {
         @($script:sync.selectedToggles) | Should -Be @("WPFToggleDarkMode")
         @($script:sync.selectedFeatures) | Should -Be @("WPFFeatureSandbox")
         @($script:sync.selectedAppx) | Should -Be @("WPFAppxExample")
-        $script:sync.WPFselectedAppsButton.Content | Should -Be "Selected Apps: 1"
+        $script:sync.WPFselectedAppsButton.Content | Should -Be "التطبيقات المحددة: 1"
         $script:sync.selectedAppsstackPanel.Children.Count | Should -Be 1
         $script:sync.selectedAppsstackPanel.Children[0].Key | Should -Be "WPFInstallGit"
     }
@@ -475,7 +475,7 @@ Describe "Invoke-WPFSelectedCheckboxesUpdate" {
         $script:sync.selectedToggles.Count | Should -Be 0
         $script:sync.selectedFeatures.Count | Should -Be 0
         $script:sync.selectedAppx.Count | Should -Be 0
-        $script:sync.WPFselectedAppsButton.Content | Should -Be "Selected Apps: 0"
+        $script:sync.WPFselectedAppsButton.Content | Should -Be "التطبيقات المحددة: 0"
         $script:sync.selectedAppsstackPanel.Children.Count | Should -Be 0
     }
 }
@@ -524,7 +524,7 @@ Describe "Invoke-WPFGetInstalled selection state" {
 
         @($script:sync.selectedApps) | Should -Be @("WPFInstallGit")
         $script:sync.WPFInstallGit.IsChecked | Should -BeTrue
-        $script:sync.WPFselectedAppsButton.Content | Should -Be "Selected Apps: 1"
+        $script:sync.WPFselectedAppsButton.Content | Should -Be "التطبيقات المحددة: 1"
         $script:sync.selectedAppsstackPanel.Children.Count | Should -Be 1
         $script:sync.selectedAppsstackPanel.Children[0].Key | Should -Be "WPFInstallGit"
     }
