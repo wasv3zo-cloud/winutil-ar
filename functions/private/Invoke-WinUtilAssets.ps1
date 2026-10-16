@@ -35,6 +35,29 @@ function Invoke-WinUtilAssets {
 
   switch ($type) {
       'logo' {
+          # Custom logo image: tools/Apply-Brand.ps1 generates Get-WinUtilBrandLogo from branding/logo.png.
+          # Without that function, or if the image cannot be decoded, the vector logo below is drawn.
+          if (Get-Command -Name Get-WinUtilBrandLogo -CommandType Function -ErrorAction SilentlyContinue) {
+              try {
+                  $brandLogoBytes = [Convert]::FromBase64String((Get-WinUtilBrandLogo))
+                  $brandLogoImage = [Windows.Media.Imaging.BitmapImage]::new()
+                  $brandLogoImage.BeginInit()
+                  $brandLogoImage.StreamSource = [System.IO.MemoryStream]::new($brandLogoBytes)
+                  $brandLogoImage.CacheOption = [Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+                  $brandLogoImage.EndInit()
+                  $brandLogoImage.Freeze()
+
+                  $brandLogo = [Windows.Controls.Image]::new()
+                  $brandLogo.Source = $brandLogoImage
+                  $brandLogo.Width = 100
+                  $brandLogo.Height = 100
+                  $canvas.Children.Add($brandLogo) | Out-Null
+                  break
+              } catch {
+                  Write-Warning "Custom logo could not be loaded, using the default logo: $_"
+              }
+          }
+
           $LogoPathData1 = @"
 M 18.00,14.00
 C 18.00,14.00 45.00,27.74 45.00,27.74
