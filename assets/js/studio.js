@@ -232,8 +232,8 @@
   async function loadFromGitHub() {
     const status = $('#loadStatus');
     try {
-      const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${BRAND_PATH}?ref=main`,
-        { headers: { Accept: 'application/vnd.github.raw+json' }, cache: 'no-store' });
+      // raw.githubusercontent.com بدل api.github.com: لا حد لعدد الطلبات للزوار بلا رمز
+      const res = await fetch(`https://raw.githubusercontent.com/${REPO}/main/${BRAND_PATH}?t=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(res.status);
       const brand = await res.json();
       state.remoteBrand = brand;
