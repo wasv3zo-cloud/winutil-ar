@@ -2,28 +2,28 @@
   "version": 1,
   "theme": "Dark",
   "colors": {
-    "MainBackgroundColor": "#0F1F17",
-    "MainForegroundColor": "#E8F5EC",
-    "BorderColor": "#2A5240",
-    "LinkForegroundColor": "#86EFAC",
-    "ButtonBackgroundColor": "#163326",
-    "ProgressBarForegroundColor": "#22C55E",
-    "ToggleButtonOnColor": "#22C55E",
-    "ButtonInstallBackgroundColor": "#14532D",
-    "ButtonTweaksBackgroundColor": "#166534",
-    "ButtonConfigBackgroundColor": "#15803D",
-    "ButtonUpdatesBackgroundColor": "#16A34A",
-    "ButtonWin11ISOBackgroundColor": "#1F7A4D",
-    "ButtonInstallForegroundColor": "#F7F7F7",
-    "ButtonTweaksForegroundColor": "#F7F7F7",
-    "ButtonConfigForegroundColor": "#F7F7F7",
-    "ButtonUpdatesForegroundColor": "#F7F7F7",
-    "ButtonWin11ISOForegroundColor": "#F7F7F7"
+    "MainBackgroundColor": "#140F24",
+    "MainForegroundColor": "#EEE9FB",
+    "ProgressBarForegroundColor": "#8B5CF6",
+    "ToggleButtonOnColor": "#8B5CF6",
+    "BorderColor": "#33285A",
+    "LinkForegroundColor": "#C4B5FD",
+    "ButtonBackgroundColor": "#211940",
+    "ButtonInstallBackgroundColor": "#4C1D95",
+    "ButtonTweaksBackgroundColor": "#5B21B6",
+    "ButtonConfigBackgroundColor": "#6D28D9",
+    "ButtonUpdatesBackgroundColor": "#7C3AED",
+    "ButtonWin11ISOBackgroundColor": "#5B21B6",
+    "ButtonInstallForegroundColor": "#FAF5FF",
+    "ButtonTweaksForegroundColor": "#FAF5FF",
+    "ButtonConfigForegroundColor": "#FAF5FF",
+    "ButtonUpdatesForegroundColor": "#FAF5FF",
+    "ButtonWin11ISOForegroundColor": "#FAF5FF"
   },
   "logo": {
-    "path1": "#0567ff",
-    "path2": "#22C55E",
-    "path3": "#a3a4a6"
+    "path1": "#A78BFA",
+    "path2": "#8B5CF6",
+    "path3": "#A1A1AA"
   },
   "logoImage": null
 }
