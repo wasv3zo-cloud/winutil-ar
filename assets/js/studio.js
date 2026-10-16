@@ -400,6 +400,19 @@
       const branch = $('#branchInput').value.trim();
       const message = $('#msgInput').value.trim() || 'تحديث الهوية البصرية';
       const btn = $('#confirmSave');
+
+      // تحقق بالعربية قبل الإرسال (النموذج novalidate حتى لا تظهر رسائل المتصفح الإنجليزية)
+      const problem =
+        !token ? ['#tokenInput', 'الصق رمز الوصول أولًا. وإن لم يكن عندك رمز فاضغط «ليس عندي رمز؟» بالأسفل.'] :
+        !/^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$/.test(token) ? ['#tokenInput', 'هذا لا يبدو رمز GitHub. الرمز الصحيح يبدأ بالحروف \u2066github_pat_\u2069'] :
+        !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo) ? ['#repoInput', 'اكتب المستودع بالشكل: الحساب/الاسم'] :
+        !branch ? ['#branchInput', 'اكتب اسم الفرع (main)'] : null;
+      if (problem) {
+        err.textContent = problem[1]; err.hidden = false;
+        $(problem[0]).focus();
+        return;
+      }
+
       btn.disabled = true; err.hidden = true;
 
       const api = github(token);

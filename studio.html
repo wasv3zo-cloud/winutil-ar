@@ -136,14 +136,27 @@
 
   <!-- ===================== نافذة الاتصال بـ GitHub ===================== -->
   <dialog class="dialog" id="saveDialog" aria-labelledby="dlgTitle">
-    <form method="dialog" id="saveForm">
+    <form method="dialog" id="saveForm" novalidate>
       <h2 class="h3" id="dlgTitle">حفظ التغييرات في GitHub</h2>
       <p class="small muted">يُرسَل الرمز إلى api.github.com فقط، ولا يُحفظ في الموقع ولا في الكود.</p>
       <label class="field">
         <span>رمز الوصول (Fine-grained token)</span>
         <input type="password" id="tokenInput" autocomplete="off" spellcheck="false" dir="ltr" placeholder="github_pat_…" required>
-        <a class="small" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">أنشئ رمزًا جديدًا ←</a>
       </label>
+      <details class="token-help">
+        <summary>ليس عندي رمز؟ أنشئه في دقيقة</summary>
+        <ol>
+          <li>افتح <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">صفحة إنشاء الرمز</a>.</li>
+          <li>في خانة الاسم <bdi dir="ltr">Token name</bdi> اكتب أي اسم، مثل «استوديو التصميم».</li>
+          <li>في <bdi dir="ltr">Expiration</bdi> اختر مدة، مثل 90 يومًا.</li>
+          <li>في <bdi dir="ltr">Repository access</bdi> اختر <bdi dir="ltr"><b>Only select repositories</b></bdi> ثم <b>2219was</b>.</li>
+          <li>في <bdi dir="ltr">Permissions</bdi> افتح <bdi dir="ltr">Repository permissions</bdi> واضبط:
+            <div class="perm"><bdi dir="ltr"><b>Contents</b> → Read and write</bdi></div>
+            <div class="perm"><bdi dir="ltr"><b>Actions</b> → Read-only</bdi></div></li>
+          <li>اضغط <bdi dir="ltr"><b>Generate token</b></bdi>، ثم انسخ الرمز والصقه في الخانة أعلاه.</li>
+        </ol>
+        <p class="small muted">الرمز يبدأ بـ <bdi dir="ltr">github_pat_</bdi>، ولا يظهر في GitHub مرة أخرى، فاحفظه في مكان آمن إن أردت استخدامه لاحقًا.</p>
+      </details>
       <div class="grid grid-2" style="gap:12px">
         <label class="field"><span>المستودع</span><input id="repoInput" dir="ltr" required pattern="[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"></label>
         <label class="field"><span>الفرع</span><input id="branchInput" dir="ltr" value="main" required></label>
