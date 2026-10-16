@@ -3,7 +3,7 @@
     Author         : Chris Titus @christitustech
     Runspace Author: @DeveloperDurp
     GitHub         : https://github.com/ChrisTitusTech
-    Version        : 26.10.01
+    Version        : 26.10.16
 #>
 
 param (
@@ -226,7 +226,7 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 
 # Variable to sync between runspaces
 $sync = [Hashtable]::Synchronized(@{})
-$sync.version = "26.10.01"
+$sync.version = "26.10.16"
 $sync.IsLocalCompile = "true" -eq "true"
 $sync.configs = @{}
 $sync.Buttons = [System.Collections.Generic.List[PSObject]]::new()
@@ -5679,7 +5679,7 @@ C 109.01,19.06 108.93,30.37 104.66,34.21
 "@
           $LogoPath2 = New-Object Windows.Shapes.Path
           $LogoPath2.Data = [Windows.Media.Geometry]::Parse($LogoPathData2)
-          $LogoPath2.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#0567ff")
+          $LogoPath2.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#22C55E")
 
           $LogoPathData3 = @"
 M 19.00,46.00
