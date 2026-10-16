@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "theme": "Dark",
+  "colors": {
+    "MainBackgroundColor": "#0F1F17",
+    "MainForegroundColor": "#E8F5EC",
+    "BorderColor": "#2A5240",
+    "LinkForegroundColor": "#86EFAC",
+    "ButtonBackgroundColor": "#163326",
+    "ProgressBarForegroundColor": "#22C55E",
+    "ToggleButtonOnColor": "#22C55E",
+    "ButtonInstallBackgroundColor": "#14532D",
+    "ButtonTweaksBackgroundColor": "#166534",
+    "ButtonConfigBackgroundColor": "#15803D",
+    "ButtonUpdatesBackgroundColor": "#16A34A",
+    "ButtonWin11ISOBackgroundColor": "#1F7A4D",
+    "ButtonInstallForegroundColor": "#F7F7F7",
+    "ButtonTweaksForegroundColor": "#F7F7F7",
+    "ButtonConfigForegroundColor": "#F7F7F7",
+    "ButtonUpdatesForegroundColor": "#F7F7F7",
+    "ButtonWin11ISOForegroundColor": "#F7F7F7"
+  },
+  "logo": {
+    "path1": "#0567ff",
+    "path2": "#22C55E",
+    "path3": "#a3a4a6"
+  },
+  "logoImage": null
+}
