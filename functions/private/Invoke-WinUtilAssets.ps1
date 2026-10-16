@@ -72,7 +72,7 @@ C 18.00,14.00 45.00,27.74 45.00,27.74
 "@
           $LogoPath1 = New-Object Windows.Shapes.Path
           $LogoPath1.Data = [Windows.Media.Geometry]::Parse($LogoPathData1)
-          $LogoPath1.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#0567ff")
+          $LogoPath1.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#A78BFA")
 
           $LogoPathData2 = @"
 M 107.00,14.00
@@ -88,7 +88,7 @@ C 109.01,19.06 108.93,30.37 104.66,34.21
 "@
           $LogoPath2 = New-Object Windows.Shapes.Path
           $LogoPath2.Data = [Windows.Media.Geometry]::Parse($LogoPathData2)
-          $LogoPath2.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#22C55E")
+          $LogoPath2.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#8B5CF6")
 
           $LogoPathData3 = @"
 M 19.00,46.00
@@ -111,7 +111,7 @@ C 21.36,47.14 28.67,50.71 30.01,52.63
 "@
           $LogoPath3 = New-Object Windows.Shapes.Path
           $LogoPath3.Data = [Windows.Media.Geometry]::Parse($LogoPathData3)
-          $LogoPath3.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#a3a4a6")
+          $LogoPath3.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#A1A1AA")
 
           $canvas.Children.Add($LogoPath1) | Out-Null
           $canvas.Children.Add($LogoPath2) | Out-Null
