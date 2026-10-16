@@ -271,7 +271,41 @@
       if (f.logo) brand.logo[f.logo] = state.colors[f.id];
       else f.keys.forEach((k) => { brand.colors[k] = state.colors[f.id]; });
     });
+    Object.assign(brand.colors, deriveColors(state.colors));
     return JSON.stringify(brand, null, 2) + '\n';
+  }
+
+  /* يمزج لونين: amount = 0 يعطي a، و 1 يعطي b */
+  function mix(a, b, amount) {
+    const ch = (hex, i) => parseInt(hex.slice(i, i + 2), 16);
+    return '#' + [1, 3, 5].map((i) => Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * amount)
+      .toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+
+  /* بقية ألوان الثيم تُشتق من الألوان الأساسية، حتى لا يبقى أي لون قديم
+     (عناوين الأقسام، خلفية القوائم، التبويب المحدد، شريط التمرير…)        */
+  function deriveColors(c) {
+    return {
+      LabelboxForegroundColor: c.accent,                     // عناوين الأقسام
+      LabelBackgroundColor: c.bg,
+      AppInstallUnselectedColor: c.bg,                       // خلفية بطاقات البرامج
+      AppInstallHighlightedColor: mix(c.bg, c.accent, 0.15),
+      AppInstallSelectedColor: mix(c.bg, c.accent, 0.3),
+      ComboBoxBackgroundColor: c.button,
+      ComboBoxForegroundColor: c.fg,
+      ToolTipBackgroundColor: c.button,
+      LinkHoverForegroundColor: c.fg,
+      ScrollBarBackgroundColor: mix(c.bg, c.accent, 0.12),
+      ScrollBarHoverColor: mix(c.bg, c.accent, 0.3),
+      ScrollBarDraggingColor: mix(c.bg, c.accent, 0.55),
+      ButtonForegroundColor: c.fg,
+      ButtonBackgroundPressedColor: c.fg,
+      ButtonBackgroundMouseoverColor: mix(c.button, c.accent, 0.3),
+      ButtonBackgroundSelectedColor: mix(c.bg, c.accent, 0.6), // التبويب المحدد
+      ToggleButtonOffColor: mix(c.bg, c.fg, 0.3),
+      ButtonAppxBackgroundColor: c['tab-win11'],
+      ButtonAppxForegroundColor: c['tab-fg'],
+    };
   }
 
   function initExportReset() {
