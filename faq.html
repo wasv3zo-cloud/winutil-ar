@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <!-- ===== رأس الصفحة: الترميز، العنوان، الوصف، الخطوط، ملف التصميم ===== -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>الأسئلة الشائعة — WinUtil العربي</title>
+  <meta name="description" content="إجابات عن أمان أداة WinUtil العربي، وطريقة التراجع، والأخطاء الشائعة، والتواصل.">
+  <meta property="og:title" content="الأسئلة الشائعة — WinUtil العربي">
+  <meta property="og:description" content="ثبّت برامجك وحسّن أداء ويندوز بأمر واحد، بواجهة عربية كاملة.">
+  <meta property="og:image" content="img/2-tweaks.jpg">
+  <meta name="theme-color" content="#07140D">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Noto+Kufi+Arabic:wght@600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <!-- يطبّق الوضع الفاتح قبل ظهور الصفحة لمنع الوميض -->
+  <script>try{if(localStorage.getItem('theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+
+<!-- الشريط العلوي: يُبنى تلقائيًا من config.js -->
+<header id="site-header"></header>
+
+<main id="main">
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="crumbs"><a href="index.html">الرئيسية</a> / <span>الأسئلة الشائعة</span></div>
+      <h1 class="h1" style="font-size:clamp(30px,5vw,50px)">عندك <span class="hl">سؤال؟</span></h1>
+      <p class="lead" style="margin:16px auto 0">ابحث بكلمة، أو تصفّح الأسئلة حسب الموضوع.</p>
+    </div>
+  </section>
+
+  <section class="section section--tight" style="padding-top:0">
+    <div class="wrap">
+      <!-- مربع البحث: يُخفي الأسئلة غير المطابقة (main.js › initFaqSearch) -->
+      <div class="search">
+        <i data-icon="search"></i>
+        <input id="faqSearch" type="search" placeholder="اكتب كلمة، مثل: آمنة، تراجع، خطأ…" aria-label="ابحث في الأسئلة">
+      </div>
+
+      <div class="faq">
+        <h2 class="h3 mt-s">الأمان والثقة</h2>
+        <details><summary>هل الأداة آمنة؟</summary><p>نعم. الكود مفتوح يستطيع أي شخص مراجعته على GitHub، وهي مبنية على أداة Chris Titus Tech الشهيرة. ومع ذلك ننصح دائمًا بإنشاء نقطة استعادة قبل التحسينات.</p></details>
+        <details><summary>هل تجمع الأداة بياناتي؟</summary><p>لا. الأداة تعمل على جهازك فقط، وأغلب تحسيناتها تُوقف ما يرسله ويندوز من بيانات تتبع.</p></details>
+        <details><summary>لماذا يحتاج الأمر صلاحية المسؤول؟</summary><p>لأن تثبيت البرامج وتعديل الخدمات وإعدادات النظام لا يتم إلا بصلاحية المسؤول، كأي برنامج إعدادات آخر.</p></details>
+
+        <h2 class="h3 mt-m">الاستخدام</h2>
+        <details><summary>هل هي مجانية؟</summary><p>مجانية بالكامل، بلا اشتراكات ولا إعلانات.</p></details>
+        <details><summary>هل أستطيع التراجع عن التحسينات؟</summary><p>نعم. اضغط «التراجع عن التحسينات المحددة» في قسم التحسينات، أو ارجع إلى نقطة الاستعادة.</p></details>
+        <details><summary>أيهما أختار: «قياسي» أم «أساسي»؟</summary><p>«قياسي» هو الاختيار الآمن لأغلب الناس. «أساسي» أخف إن كنت تريد أقل قدر من التغيير.</p></details>
+        <details><summary>هل أحتاج تشغيل الأمر في كل مرة؟</summary><p>نعم، الأداة لا تُثبَّت على الجهاز. وهذه ميزة، فكل مرة تحصل على أحدث نسخة تلقائيًا.</p></details>
+
+        <h2 class="h3 mt-m">الأخطاء</h2>
+        <details><summary>ظهرت رسالة خطأ حمراء بعد لصق الأمر</summary><p>تأكد أنك فتحت PowerShell كمسؤول، وأنك نسخت الأمر كاملًا بزر النسخ، وأن الإنترنت يعمل.</p></details>
+        <details><summary>الحروف العربية تظهر رموزًا غريبة</summary><p>هذا يحدث فقط إن بنيت نسختك الخاصة وحفظتها بترميز خاطئ. احفظ الملف بترميز UTF-8 with BOM.</p></details>
+        <details><summary>برنامج الحماية يمنع الأداة</summary><p>بعض برامج الحماية تتحفظ على أوامر PowerShell عمومًا. راجع الكود على GitHub ثم اسمح له مؤقتًا إن اطمأننت.</p></details>
+
+        <h2 class="h3 mt-m">عن المشروع</h2>
+        <details><summary>ما الفرق بينها وبين النسخة الأصلية؟</summary><p>الوظائف نفسها، لكن الواجهة معرّبة بالكامل، والاتجاه من اليمين إلى اليسار، والثيم أخضر.</p></details>
+        <details><summary>هل أستطيع عمل نسختي الخاصة؟</summary><p>نعم. راجع صفحة «صمّم نسختك» لتعرف الملفات التي تعدّلها وكيف تنشرها.</p></details>
+        <p class="empty" id="faqEmpty">لا توجد نتائج. جرّب كلمة أخرى أو اسألنا مباشرة.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== التواصل ===== -->
+  <section>
+    <div class="wrap">
+      <div class="cta reveal">
+        <h2 class="h2">لم تجد إجابتك؟</h2>
+        <p>تواصل معنا عبر صفحة المشروع على GitHub.</p>
+        <div class="btn-row" style="justify-content:center">
+          <a class="btn btn--primary" href="https://github.com/wasv3zo-cloud/2219was" target="_blank" rel="noopener"><i data-icon="github"></i>صفحة المشروع</a>
+          <a class="btn btn--ghost" href="guide.html">ارجع إلى الدليل</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- التذييل: يُبنى تلقائيًا من config.js -->
+<footer id="site-footer"></footer>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/main.js"></script>
+</body>
+</html>
