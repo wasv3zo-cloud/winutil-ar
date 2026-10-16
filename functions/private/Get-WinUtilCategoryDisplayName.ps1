@@ -20,7 +20,7 @@ function Get-WinUtilCategoryDisplayName {
 
     $names = @{
         # Install tab
-        "Browsers"                              = "المتصفحات"
+        "Browsers"                              = "Saud"
         "Communications"                        = "التواصل"
         "Development"                           = "التطوير"
         "Document"                              = "المستندات"
