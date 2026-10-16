@@ -15,6 +15,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Noto+Kufi+Arabic:wght@600;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/style.css">
+  <!-- ألوان الهوية التي يولّدها GitHub Actions من branding/brand.json (تُحمَّل بعد style.css لتغلبها) -->
+  <link rel="stylesheet" href="assets/css/brand.css">
   <!-- يطبّق الوضع الفاتح قبل ظهور الصفحة لمنع الوميض -->
   <script>try{if(localStorage.getItem('theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
 </head>
@@ -30,11 +32,12 @@
       <div class="crumbs"><a href="index.html">الرئيسية</a> / <span>صمّم نسختك</span></div>
       <h1 class="h1" style="font-size:clamp(30px,5vw,50px)">صمّم <span class="hl">نسختك الخاصة</span> من الأداة</h1>
       <p class="lead" style="margin:16px auto 0">الأداة مفتوحة المصدر. كل ما يخص شكلها موجود في ثلاثة ملفات فقط، وهذه الصفحة تريك أين تعدّل بالضبط.</p>
+      <div class="btn-row mt-m" style="justify-content:center"><a class="btn btn--primary" href="studio.html"><i data-icon="palette"></i>افتح استوديو التصميم</a><a class="btn btn--ghost" href="#manual">أو عدّل يدويًا</a></div>
     </div>
   </section>
 
   <!-- ===== الملفات الثلاثة ===== -->
-  <section class="section section--tight">
+  <section class="section section--tight" id="manual">
     <div class="wrap">
       <div class="grid grid-3">
         <article class="card reveal file-card"><div class="ico"><i data-icon="palette"></i></div><h3 class="h3">الألوان</h3><div class="path">config/themes.json</div><p>ألوان الخلفية والأزرار والنصوص للثيمين الداكن والفاتح.</p></article>

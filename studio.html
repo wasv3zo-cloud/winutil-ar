@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <!-- ===== رأس الصفحة: الترميز، العنوان، الوصف، الخطوط، ملف التصميم ===== -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>استوديو التصميم — WinUtil العربي</title>
+  <meta name="description" content="غيّر ألوان أداة WinUtil العربي وشعارها بمعاينة حية، واحفظها مباشرة في GitHub.">
+  <meta property="og:title" content="استوديو التصميم — WinUtil العربي">
+  <meta property="og:description" content="ثبّت برامجك وحسّن أداء ويندوز بأمر واحد، بواجهة عربية كاملة.">
+  <meta property="og:image" content="img/2-tweaks.jpg">
+  <meta name="theme-color" content="#07140D">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Noto+Kufi+Arabic:wght@600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <!-- ألوان الهوية التي يولّدها GitHub Actions من branding/brand.json (تُحمَّل بعد style.css لتغلبها) -->
+  <link rel="stylesheet" href="assets/css/brand.css">
+  <!-- يطبّق الوضع الفاتح قبل ظهور الصفحة لمنع الوميض -->
+  <script>try{if(localStorage.getItem('theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+
+<!-- الشريط العلوي: يُبنى تلقائيًا من config.js -->
+<header id="site-header"></header>
+
+<main id="main">
+  <section class="page-hero" style="padding-bottom:32px">
+    <div class="wrap">
+      <div class="crumbs"><a href="index.html">الرئيسية</a> / <a href="customize.html">صمّم نسختك</a> / <span>الاستوديو</span></div>
+      <h1 class="h1" style="font-size:clamp(28px,4.6vw,46px)">استوديو <span class="hl">التصميم</span></h1>
+      <p class="lead" style="margin:14px auto 0">غيّر الألوان والشعار وشاهد الأداة تتغير أمامك. عند الحفظ تُبنى نسخة جديدة وتصل لكل من يشغّل الأمر.</p>
+    </div>
+  </section>
+
+  <div class="wrap studio">
+    <!-- ===================== لوحة التحكم ===================== -->
+    <aside class="panel" aria-label="لوحة التحكم">
+      <div class="panel__status" id="loadStatus"><i data-icon="refresh"></i><span>جارٍ تحميل الهوية الحالية…</span></div>
+
+      <!-- قوالب جاهزة: تملأ كل الألوان دفعة واحدة -->
+      <section class="panel__group">
+        <h2 class="panel__title">قوالب جاهزة</h2>
+        <div class="presets" id="presets"></div>
+      </section>
+
+      <!-- مجموعات الألوان: تُبنى الحقول تلقائيًا من studio.js (FIELDS) -->
+      <section class="panel__group">
+        <h2 class="panel__title">ألوان الواجهة</h2>
+        <div class="fields" data-group="ui"></div>
+      </section>
+      <section class="panel__group">
+        <h2 class="panel__title">أزرار التبويبات</h2>
+        <div class="fields" data-group="tabs"></div>
+      </section>
+
+      <!-- الشعار: رفع صورة + ألوان الشعار المرسوم -->
+      <section class="panel__group">
+        <h2 class="panel__title">الشعار</h2>
+        <label class="drop" id="drop">
+          <input type="file" id="logoInput" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
+          <span class="drop__thumb" id="logoThumb"><i data-icon="image"></i></span>
+          <span><b>ارفع شعارًا جديدًا</b><br><span class="small muted">PNG أو JPG أو SVG · يُحوَّل إلى PNG مربع 256×256</span></span>
+        </label>
+        <button class="btn btn--link small mt-s" id="logoRemove" hidden><i data-icon="close"></i>إزالة الصورة والرجوع للشعار المرسوم</button>
+        <p class="small muted mt-s" id="logoHint">ألوان الشعار المرسوم (تُستخدم عندما لا توجد صورة):</p>
+        <div class="fields" data-group="logo"></div>
+      </section>
+
+      <!-- شريط الأفعال: ثابت أسفل اللوحة -->
+      <div class="panel__actions">
+        <span class="dirty" id="dirty" hidden>تغييرات غير محفوظة</span>
+        <div class="btn-row">
+          <button class="btn btn--ghost btn--sm" id="resetBtn"><i data-icon="refresh"></i>تراجع</button>
+          <button class="btn btn--ghost btn--sm" id="exportBtn"><i data-icon="file"></i>تصدير JSON</button>
+          <button class="btn btn--primary btn--sm" id="saveBtn" disabled><i data-icon="github"></i>حفظ التغييرات</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ===================== المعاينة الحية ===================== -->
+    <section class="preview-wrap" aria-label="معاينة حية">
+      <div class="preview-head"><span class="eyebrow" style="margin:0">معاينة حية</span><span class="small muted" id="contrast"></span></div>
+
+      <!-- نافذة تحاكي WinUtil: كل لون فيها متغير CSS يُحدَّث من اللوحة -->
+      <div class="tool" id="preview">
+        <div class="tool__bar">
+          <span class="tool__logo" id="pvLogo">
+            <svg viewBox="10 8 104 108" aria-hidden="true">
+              <path fill="var(--logo1)" d="M 18.00,14.00 C 18.00,14.00 45.00,27.74 45.00,27.74 45.00,27.74 57.40,34.63 57.40,34.63 57.40,34.63 59.00,43.00 59.00,43.00 59.00,43.00 59.00,83.00 59.00,83.00 55.35,81.66 46.99,77.79 44.72,74.79 41.17,70.10 42.01,59.80 42.00,54.00 42.00,51.62 42.20,48.29 40.98,46.21 38.34,41.74 25.78,38.60 21.28,33.79 16.81,29.02 18.00,20.20 18.00,14.00 Z"/>
+              <path fill="var(--logo2)" d="M 107.00,14.00 C 109.01,19.06 108.93,30.37 104.66,34.21 100.47,37.98 86.38,43.10 84.60,47.21 83.94,48.74 84.01,51.32 84.00,53.00 83.97,57.04 84.46,68.90 83.26,72.00 81.06,77.70 72.54,81.42 67.00,83.00 67.00,83.00 67.00,43.00 67.00,43.00 67.00,43.00 67.99,35.63 67.99,35.63 67.99,35.63 80.00,28.26 80.00,28.26 80.00,28.26 107.00,14.00 107.00,14.00 Z"/>
+              <path fill="var(--logo3)" d="M 19.00,46.00 C 21.36,47.14 28.67,50.71 30.01,52.63 31.17,54.30 30.99,57.04 31.00,59.00 31.04,65.41 30.35,72.16 33.56,78.00 38.19,86.45 46.10,89.04 54.00,93.31 56.55,94.69 60.10,97.20 63.00,97.22 65.50,97.24 68.77,95.36 71.00,94.25 76.42,91.55 84.51,87.78 88.82,83.68 94.56,78.20 95.96,70.59 96.00,63.00 96.01,60.24 95.59,54.63 97.02,52.39 98.80,49.60 103.95,47.87 107.00,47.00 107.00,47.00 107.00,67.00 107.00,67.00 106.90,87.69 96.10,93.85 80.00,103.00 76.51,104.98 66.66,110.67 63.00,110.52 60.33,110.41 55.55,107.53 53.00,106.25 46.21,102.83 36.63,98.57 31.04,93.68 16.88,81.28 19.00,62.88 19.00,46.00 Z"/>
+            </svg>
+            <img alt="" hidden>
+          </span>
+          <span class="tool__tab" style="--tab:var(--tab-install)">التثبيت</span>
+          <span class="tool__tab is-on" style="--tab:var(--tab-tweaks)">التحسينات</span>
+          <span class="tool__tab" style="--tab:var(--tab-config)">الإعدادات</span>
+          <span class="tool__tab" style="--tab:var(--tab-updates)">التحديثات</span>
+          <span class="tool__tab" style="--tab:var(--tab-win11)">ويندوز 11</span>
+          <span class="tool__search">بحث…</span>
+        </div>
+        <div class="tool__presets"><span class="tool__btn">قياسي</span><span class="tool__btn">أساسي</span><span class="tool__btn">مسح الكل</span></div>
+        <div class="tool__body">
+          <div class="tool__col">
+            <h3>التحسينات الأساسية</h3>
+            <label><i class="cb on"></i>نقطة استعادة - إنشاء</label>
+            <label><i class="cb on"></i>الملفات المؤقتة - حذف</label>
+            <label><i class="cb"></i>القياس عن بُعد - تعطيل</label>
+            <label><i class="cb on"></i>تتبع الموقع - تعطيل</label>
+            <label><i class="cb"></i>وضع السبات - تعطيل</label>
+            <a class="tool__link">ما هذه التحسينات؟</a>
+          </div>
+          <div class="tool__col">
+            <h3>تخصيص التفضيلات</h3>
+            <label><i class="tg on"></i>الوضع الداكن</label>
+            <label><i class="tg"></i>إظهار امتدادات الملفات</label>
+            <label><i class="tg on"></i>زر البحث في شريط المهام</label>
+            <label><i class="tg"></i>تثبيت لوحة الأرقام</label>
+            <div class="tool__progress"><i style="width:64%"></i></div>
+          </div>
+        </div>
+        <div class="tool__foot"><span class="tool__btn">التراجع عن التحسينات المحددة</span><span class="tool__btn tool__btn--main">تطبيق التحسينات</span></div>
+      </div>
+
+      <!-- خطوات الحفظ والبناء: تظهر بعد الضغط على حفظ -->
+      <ol class="pipeline" id="pipeline" hidden>
+        <li data-step="commit"><b>حفظ الملفات في GitHub</b><span>commit على فرع main</span></li>
+        <li data-step="build"><b>إعادة البناء (GitHub Actions)</b><span>تطبيق الهوية ثم Compile.ps1</span></li>
+        <li data-step="live"><b>النشر</b><span>winutil.ps1 على فرع release · ألوان الموقع</span></li>
+      </ol>
+    </section>
+  </div>
+
+  <!-- ===================== نافذة الاتصال بـ GitHub ===================== -->
+  <dialog class="dialog" id="saveDialog" aria-labelledby="dlgTitle">
+    <form method="dialog" id="saveForm">
+      <h2 class="h3" id="dlgTitle">حفظ التغييرات في GitHub</h2>
+      <p class="small muted">يُرسَل الرمز إلى api.github.com فقط، ولا يُحفظ في الموقع ولا في الكود.</p>
+      <label class="field">
+        <span>رمز الوصول (Fine-grained token)</span>
+        <input type="password" id="tokenInput" autocomplete="off" spellcheck="false" dir="ltr" placeholder="github_pat_…" required>
+        <a class="small" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">أنشئ رمزًا جديدًا ←</a>
+      </label>
+      <div class="grid grid-2" style="gap:12px">
+        <label class="field"><span>المستودع</span><input id="repoInput" dir="ltr" required pattern="[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"></label>
+        <label class="field"><span>الفرع</span><input id="branchInput" dir="ltr" value="main" required></label>
+      </div>
+      <label class="field"><span>رسالة الحفظ</span><input id="msgInput" value="تحديث الهوية البصرية من استوديو التصميم"></label>
+      <label class="check"><input type="checkbox" id="rememberInput"> تذكّر الرمز حتى أغلق هذا التبويب</label>
+      <p class="form-error" id="formError" role="alert" hidden></p>
+      <div class="btn-row mt-m">
+        <button class="btn btn--primary" id="confirmSave" value="save"><i data-icon="github"></i>احفظ الآن</button>
+        <button class="btn btn--ghost" value="cancel" formnovalidate>إلغاء</button>
+      </div>
+    </form>
+  </dialog>
+</main>
+
+<!-- التذييل: يُبنى تلقائيًا من config.js -->
+<footer id="site-footer"></footer>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/main.js"></script>
+<!-- منطق الاستوديو: الحالة، المعاينة، والحفظ في GitHub -->
+<script src="assets/js/studio.js"></script>
+</body>
+</html>
