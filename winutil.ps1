@@ -2701,7 +2701,7 @@ C 18.00,14.00 45.00,27.74 45.00,27.74
 "@
           $LogoPath1 = New-Object Windows.Shapes.Path
           $LogoPath1.Data = [Windows.Media.Geometry]::Parse($LogoPathData1)
-          $LogoPath1.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#0567ff")
+          $LogoPath1.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#A78BFA")
 
           $LogoPathData2 = @"
 M 107.00,14.00
@@ -2717,7 +2717,7 @@ C 109.01,19.06 108.93,30.37 104.66,34.21
 "@
           $LogoPath2 = New-Object Windows.Shapes.Path
           $LogoPath2.Data = [Windows.Media.Geometry]::Parse($LogoPathData2)
-          $LogoPath2.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#22C55E")
+          $LogoPath2.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#8B5CF6")
 
           $LogoPathData3 = @"
 M 19.00,46.00
@@ -2740,7 +2740,7 @@ C 21.36,47.14 28.67,50.71 30.01,52.63
 "@
           $LogoPath3 = New-Object Windows.Shapes.Path
           $LogoPath3.Data = [Windows.Media.Geometry]::Parse($LogoPathData3)
-          $LogoPath3.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#a3a4a6")
+          $LogoPath3.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#A1A1AA")
 
           $canvas.Children.Add($LogoPath1) | Out-Null
           $canvas.Children.Add($LogoPath2) | Out-Null
@@ -15168,39 +15168,39 @@ $sync.configs.themes = @'
     "ComboBoxForegroundColor": "#E8F5EC",
     "ComboBoxBackgroundColor": "#163326",
     "LabelboxForegroundColor": "#4ADE80",
-    "MainForegroundColor": "#E8F5EC",
-    "MainBackgroundColor": "#0F1F17",
+    "MainForegroundColor": "#EEE9FB",
+    "MainBackgroundColor": "#140F24",
     "LabelBackgroundColor": "#0F1F17",
-    "LinkForegroundColor": "#86EFAC",
+    "LinkForegroundColor": "#C4B5FD",
     "LinkHoverForegroundColor": "#E8F5EC",
     "ScrollBarBackgroundColor": "#1A3326",
     "ScrollBarHoverColor": "#23503A",
     "ScrollBarDraggingColor": "#2E7D55",
-    "ProgressBarForegroundColor": "#22C55E",
+    "ProgressBarForegroundColor": "#8B5CF6",
     "ProgressBarErrorColor": "#FF6B6B",
     "ProgressBarWarningColor": "#FFC83D",
     "ProgressBarBackgroundColor": "Transparent",
-    "ButtonInstallBackgroundColor": "#14532D",
-    "ButtonTweaksBackgroundColor": "#166534",
-    "ButtonConfigBackgroundColor": "#15803D",
-    "ButtonUpdatesBackgroundColor": "#16A34A",
-    "ButtonWin11ISOBackgroundColor": "#1F7A4D",
+    "ButtonInstallBackgroundColor": "#4C1D95",
+    "ButtonTweaksBackgroundColor": "#5B21B6",
+    "ButtonConfigBackgroundColor": "#6D28D9",
+    "ButtonUpdatesBackgroundColor": "#7C3AED",
+    "ButtonWin11ISOBackgroundColor": "#5B21B6",
     "ButtonAppxBackgroundColor": "#2F855A",
-    "ButtonInstallForegroundColor": "#F7F7F7",
-    "ButtonTweaksForegroundColor": "#F7F7F7",
-    "ButtonConfigForegroundColor": "#F7F7F7",
-    "ButtonUpdatesForegroundColor": "#F7F7F7",
-    "ButtonWin11ISOForegroundColor": "#F7F7F7",
+    "ButtonInstallForegroundColor": "#FAF5FF",
+    "ButtonTweaksForegroundColor": "#FAF5FF",
+    "ButtonConfigForegroundColor": "#FAF5FF",
+    "ButtonUpdatesForegroundColor": "#FAF5FF",
+    "ButtonWin11ISOForegroundColor": "#FAF5FF",
     "ButtonAppxForegroundColor": "#F7F7F7",
-    "ButtonBackgroundColor": "#163326",
+    "ButtonBackgroundColor": "#211940",
     "ButtonBackgroundPressedColor": "#E8F5EC",
     "ButtonBackgroundMouseoverColor": "#23503A",
     "ButtonBackgroundSelectedColor": "#2E7D55",
     "ButtonForegroundColor": "#E8F5EC",
-    "ToggleButtonOnColor": "#22C55E",
+    "ToggleButtonOnColor": "#8B5CF6",
     "ToggleButtonOffColor": "#4B5B52",
     "ToolTipBackgroundColor": "#163326",
-    "BorderColor": "#2A5240",
+    "BorderColor": "#33285A",
     "BorderOpacity": "0.4"
   }
 }
