@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>منشئ الإعداد — WinUtil العربي</title>
+  <meta name="description" content="اختر برامجك وتحسيناتك من الموقع، وجهّز جهازك كاملًا بأمر واحد.">
+  <link rel="canonical" href="https://wasv3zo-cloud.github.io/winutil-ar/build/">
+  <meta property="og:title" content="منشئ الإعداد — WinUtil العربي">
+  <meta property="og:image" content="https://wasv3zo-cloud.github.io/winutil-ar/img/1-install.jpg">
+  <meta name="theme-color" content="#07140D">
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Noto+Kufi+Arabic:wght@600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/brand.css">
+  <script>try{if(localStorage.getItem('theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+<header id="site-header"></header>
+
+<main id="main">
+  <section class="page-hero" style="padding-bottom:28px">
+    <div class="wrap">
+      <div class="crumbs"><a href="../">الرئيسية</a> / <span>منشئ الإعداد</span></div>
+      <h1 class="h1" style="font-size:clamp(28px,4.6vw,46px)">جهّز جهازك <span class="hl">بأمر واحد</span></h1>
+      <p class="lead" style="margin:14px auto 0">اختر برامجك وتحسيناتك هنا، ثم شغّل أمرًا واحدًا: تُثبَّت البرامج وتُطبَّق التحسينات تلقائيًا دون أن تفتح الأداة.</p>
+    </div>
+  </section>
+
+  <div class="wrap builder">
+    <div>
+      <!-- ===== المساعد: ثلاثة أسئلة تقترح إعدادًا ===== -->
+      <section class="card wizard" id="wizard">
+        <div class="wizard__head"><i data-icon="gift"></i><div><h2 class="h3" style="margin:0">لا تعرف من أين تبدأ؟</h2><p class="muted small">ثلاثة أسئلة، ونقترح عليك إعدادًا مناسبًا تعدّل عليه كما تريد.</p></div></div>
+        <div class="q" data-q="device"><b>جهازك:</b>
+          <button class="chip" data-v="laptop">لابتوب</button><button class="chip" data-v="desktop">مكتبي</button></div>
+        <div class="q" data-q="use"><b>تستخدمه غالبًا في:</b>
+          <button class="chip" data-v="gaming">الألعاب</button><button class="chip" data-v="work">العمل</button><button class="chip" data-v="dev">البرمجة</button><button class="chip" data-v="study">الدراسة</button></div>
+        <div class="q" data-q="privacy"><b>الخصوصية:</b>
+          <button class="chip" data-v="normal">عادية</button><button class="chip" data-v="high">أريد أقصى خصوصية</button></div>
+        <button class="btn btn--primary btn--sm mt-s" id="wizardApply" disabled>اقترح لي إعدادًا</button>
+      </section>
+
+      <!-- ===== التبويبات: البرامج والتحسينات ===== -->
+      <div class="tabs" role="tablist" data-tabs aria-label="أقسام الاختيار" style="margin:28px 0 18px">
+        <button class="tab" role="tab" aria-selected="true" aria-controls="pApps" id="tApps"><i data-icon="box"></i>البرامج <span class="count" id="cApps">0</span></button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="pTweaks" id="tTweaks" tabindex="-1"><i data-icon="bolt"></i>التحسينات <span class="count" id="cTweaks">0</span></button>
+      </div>
+
+      <section class="tab-panel" id="pApps" role="tabpanel" aria-labelledby="tApps">
+        <div class="search"><i data-icon="search"></i><input id="appSearch" type="search" placeholder="ابحث عن برنامج… (Chrome، ديسكورد، VLC)" aria-label="ابحث عن برنامج"></div>
+        <div id="appList" class="pick-groups"><p class="muted">جارٍ التحميل…</p></div>
+      </section>
+      <section class="tab-panel" id="pTweaks" role="tabpanel" aria-labelledby="tTweaks" hidden>
+        <div class="btn-row" style="margin-bottom:14px">
+          <button class="btn btn--ghost btn--sm" data-preset="Minimal">الإعداد الأساسي</button>
+          <button class="btn btn--ghost btn--sm" data-preset="Standard">الإعداد القياسي</button>
+          <button class="btn btn--link btn--sm" id="clearTweaks">مسح التحسينات</button>
+        </div>
+        <div id="tweakList" class="pick-groups"></div>
+      </section>
+    </div>
+
+    <!-- ===== الملخص: ثابت بجانب الاختيارات ===== -->
+    <aside class="summary card" aria-label="ملخص الإعداد">
+      <h2 class="h3">إعدادك</h2>
+      <p class="muted small" id="sumText">لم تختر شيئًا بعد.</p>
+      <div class="sum-chips" id="sumChips"></div>
+      <div class="sum-actions">
+        <button class="btn btn--primary" id="dlBtn" disabled><i data-icon="file"></i>1. حمّل ملف الإعداد</button>
+        <button class="btn btn--ghost" id="cmdBtn" disabled><i data-icon="terminal"></i>2. انسخ أمر التشغيل</button>
+        <button class="btn btn--link btn--sm" id="shareBtn" disabled><i data-icon="globe"></i>انسخ رابطًا لهذا الإعداد</button>
+      </div>
+      <div class="callout callout--warn small"><i data-icon="alert"></i><div>الأمر يطبّق الإعداد <b>مباشرة دون فتح الأداة</b>. شغّله في PowerShell كمسؤول، والملف في مجلد «التنزيلات».</div></div>
+    </aside>
+  </div>
+</main>
+
+<footer id="site-footer"></footer>
+<script src="../assets/js/config.js"></script>
+<script src="../assets/js/main.js"></script>
+<!-- منطق المنشئ: البيانات تأتي من assets/data (يولّدها البناء التلقائي من ملفات الأداة) -->
+<script src="../assets/js/build.js"></script>
+</body>
+</html>

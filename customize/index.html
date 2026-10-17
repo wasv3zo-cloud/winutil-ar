@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-root="../">
+<head>
+  <!-- ===== رأس الصفحة: الترميز، العنوان، الوصف، الخطوط، ملف التصميم ===== -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>صمّم نسختك — WinUtil العربي</title>
+  <meta name="description" content="كيف تغيّر ألوان أداة WinUtil العربي وشعارها ونصوصها، ثم تبنيها وتنشرها باسمك.">
+  <meta property="og:title" content="صمّم نسختك — WinUtil العربي">
+  <meta property="og:description" content="ثبّت برامجك وحسّن أداء ويندوز بأمر واحد، بواجهة عربية كاملة.">
+  <meta property="og:image" content="img/2-tweaks.jpg">
+  <meta name="theme-color" content="#07140D">
+  <link rel="canonical" href="https://wasv3zo-cloud.github.io/winutil-ar/customize/">
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Noto+Kufi+Arabic:wght@600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <!-- ألوان الهوية التي يولّدها GitHub Actions من branding/brand.json (تُحمَّل بعد style.css لتغلبها) -->
+  <link rel="stylesheet" href="../assets/css/brand.css">
+  <!-- يطبّق الوضع الفاتح قبل ظهور الصفحة لمنع الوميض -->
+  <script>try{if(localStorage.getItem('theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+
+<!-- الشريط العلوي: يُبنى تلقائيًا من config.js -->
+<header id="site-header"></header>
+
+<main id="main">
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="crumbs"><a href="../">الرئيسية</a> / <span>صمّم نسختك</span></div>
+      <h1 class="h1" style="font-size:clamp(30px,5vw,50px)">صمّم <span class="hl">نسختك الخاصة</span> من الأداة</h1>
+      <p class="lead" style="margin:16px auto 0">الأداة مفتوحة المصدر. كل ما يخص شكلها موجود في ثلاثة ملفات فقط، وهذه الصفحة تريك أين تعدّل بالضبط.</p>
+      <div class="btn-row mt-m" style="justify-content:center"><a class="btn btn--primary" href="../studio/"><i data-icon="palette"></i>افتح استوديو التصميم</a><a class="btn btn--ghost" href="#manual">أو عدّل يدويًا</a></div>
+    </div>
+  </section>
+
+  <!-- ===== الملفات الثلاثة ===== -->
+  <section class="section section--tight" id="manual">
+    <div class="wrap">
+      <div class="grid grid-3">
+        <article class="card reveal file-card"><div class="ico"><i data-icon="palette"></i></div><h3 class="h3">الألوان</h3><div class="path">config/themes.json</div><p>ألوان الخلفية والأزرار والنصوص للثيمين الداكن والفاتح.</p></article>
+        <article class="card reveal file-card" data-delay="1"><div class="ico"><i data-icon="image"></i></div><h3 class="h3">الشعار</h3><div class="path">functions/private/Invoke-WinUtilAssets.ps1</div><p>الشعار مرسوم بالكود؛ غيّر قيم <kbd>Fill</kbd> لتلوين أجزائه.</p></article>
+        <article class="card reveal file-card" data-delay="2"><div class="ico"><i data-icon="type"></i></div><h3 class="h3">النصوص</h3><div class="path">xaml/inputXML.xaml</div><p>أسماء التبويبات والأزرار والعناوين. هنا تترجم وتعيد التسمية.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== لوحة الألوان الحالية: اضغط لنسخ الرمز ===== -->
+  <section class="section section--alt">
+    <div class="wrap">
+      <span class="eyebrow">لوحة الألوان</span>
+      <h2 class="h2">ألوان الأداة الحالية</h2>
+      <p class="lead">اضغط على أي لون لنسخ رمزه، ثم الصقه في <kbd>themes.json</kbd> مكان اللون الذي تريد تغييره.</p>
+      <div class="swatches mt-m">
+        <button class="swatch" data-copy data-text="#0F1F17" data-toast="تم نسخ ‎#0F1F17"><i style="background:#0F1F17"></i><span>الخلفية<code>#0F1F17</code></span></button>
+        <button class="swatch" data-copy data-text="#166534" data-toast="تم نسخ ‎#166534"><i style="background:#166534"></i><span>أزرار التحسينات<code>#166534</code></span></button>
+        <button class="swatch" data-copy data-text="#22C55E" data-toast="تم نسخ ‎#22C55E"><i style="background:#22C55E"></i><span>الأخضر الرئيسي<code>#22C55E</code></span></button>
+        <button class="swatch" data-copy data-text="#86EFAC" data-toast="تم نسخ ‎#86EFAC"><i style="background:#86EFAC"></i><span>لون الروابط<code>#86EFAC</code></span></button>
+        <button class="swatch" data-copy data-text="#F3FAF5" data-toast="تم نسخ ‎#F3FAF5"><i style="background:#F3FAF5"></i><span>النص الفاتح<code>#F3FAF5</code></span></button>
+        <button class="swatch" data-copy data-text="#0567ff" data-toast="تم نسخ ‎#0567ff"><i style="background:#0567ff"></i><span>جزء الشعار الأزرق<code>#0567ff</code></span></button>
+      </div>
+
+      <h3 class="h3 mt-l">مثال: تغيير لون أزرار التحسينات</h3>
+      <div class="code-block">
+        <button class="copy-btn" data-copy="#ex1"><i data-icon="copy"></i>نسخ</button>
+        <pre id="ex1"><span class="c-com">// config/themes.json — داخل قسم "Dark"</span>
+<span class="c-key">"ButtonTweaksBackgroundColor"</span>: <span class="c-val">"#166534"</span>,
+<span class="c-key">"ButtonTweaksForegroundColor"</span>: <span class="c-val">"#F7F7F7"</span>,</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== خطوات البناء والنشر ===== -->
+  <section class="section">
+    <div class="wrap">
+      <span class="eyebrow">من التعديل إلى النشر</span>
+      <h2 class="h2">أربع خطوات لتنشر نسختك</h2>
+      <div class="steps mt-m">
+        <div class="step reveal"><div><h3 class="h3">انسخ المشروع</h3><p>اضغط <b>Fork</b> في صفحة المستودع لتحصل على نسخة باسمك.</p><a class="btn btn--link mt-s" href="https://github.com/wasv3zo-cloud/2219was" target="_blank" rel="noopener"><i data-icon="github"></i>افتح المستودع</a></div></div>
+        <div class="step reveal"><div><h3 class="h3">عدّل الملفات</h3><p>غيّر الألوان أو الشعار أو النصوص في الملفات الثلاثة أعلاه.</p></div></div>
+        <div class="step reveal"><div><h3 class="h3">ابنِ الملف النهائي</h3><p>شغّل هذا الأمر داخل مجلد المشروع ليجمع كل الملفات في ملف واحد:</p>
+          <div class="code-block"><button class="copy-btn" data-copy="#ex2"><i data-icon="copy"></i>نسخ</button><pre id="ex2">.\Compile.ps1</pre></div></div></div>
+        <div class="step reveal"><div><h3 class="h3">ارفعه إلى فرع release</h3><p>ارفع ملف <kbd>winutil.ps1</kbd> الناتج إلى فرع <kbd>release</kbd>، وعدّل الرابط في أمر التشغيل ليشير إلى حسابك.</p></div></div>
+      </div>
+      <div class="callout callout--tip"><i data-icon="info"></i><div>احفظ ملف <kbd>winutil.ps1</kbd> بترميز <b>UTF-8 with BOM</b>، وإلا ستظهر الحروف العربية رموزًا غريبة.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="cta reveal">
+        <h2 class="h2">تريد تعديل هذا الموقع أيضًا؟</h2>
+        <p>دليل مختصر يشرح تغيير ألوان الموقع ونصوصه وصوره دون خبرة برمجية.</p>
+        <div class="btn-row" style="justify-content:center"><a class="btn btn--primary" href="../cheatsheet/"><i data-icon="edit"></i>دليل تعديل الموقع</a></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- التذييل: يُبنى تلقائيًا من config.js -->
+<footer id="site-footer"></footer>
+
+<script src="../assets/js/config.js"></script>
+<script src="../assets/js/main.js"></script>
+</body>
+</html>

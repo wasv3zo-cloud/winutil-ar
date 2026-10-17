@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://wasv3zo-cloud.github.io/winutil-ar/sitemap.xml

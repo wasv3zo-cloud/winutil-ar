@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" data-root="">
 <head>
   <!-- ===== رأس الصفحة: الترميز، العنوان، الوصف، الخطوط، ملف التصميم ===== -->
   <meta charset="utf-8">
@@ -10,6 +10,7 @@
   <meta property="og:description" content="ثبّت برامجك وحسّن أداء ويندوز بأمر واحد، بواجهة عربية كاملة.">
   <meta property="og:image" content="img/2-tweaks.jpg">
   <meta name="theme-color" content="#07140D">
+  <link rel="canonical" href="https://wasv3zo-cloud.github.io/winutil-ar/">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,10 +49,12 @@
         <span><i data-icon="windows"></i>ويندوز 10 و11</span>
         <span><i data-icon="gift"></i>مجانية بالكامل</span>
         <span><i data-icon="shield"></i>مفتوحة المصدر وقابلة للتراجع</span>
+        <span><i data-icon="check"></i>الإصدار <b data-build="version">الأحدث</b></span>
       </div>
 
       <div class="btn-row mt-m" style="justify-content:center">
-        <a class="btn btn--ghost" href="guide.html"><i data-icon="book"></i>أول مرة؟ اقرأ الدليل خطوة بخطوة</a>
+        <a class="btn btn--ghost" href="guide/"><i data-icon="book"></i>أول مرة؟ اقرأ الدليل خطوة بخطوة</a>
+        <a class="btn btn--ghost" href="build/"><i data-icon="box"></i>جهّز جهازًا جديدًا بأمر واحد</a>
       </div>
 
       <div class="frame hero__shot reveal">
@@ -99,7 +102,7 @@
         <div class="step reveal" data-delay="1"><div><h3 class="h3">الصق الأمر</h3><p>انسخ الأمر من أعلى الصفحة، والصقه، ثم اضغط <kbd>Enter</kbd>.</p></div></div>
         <div class="step reveal" data-delay="2"><div><h3 class="h3">اختر وطبّق</h3><p>تفتح الأداة بالعربي. حدد ما تريد واضغط تطبيق.</p></div></div>
       </div>
-      <div class="center mt-m"><a class="btn btn--link" href="guide.html">اقرأ الدليل الكامل بالصور <i data-icon="arrow"></i></a></div>
+      <div class="center mt-m"><a class="btn btn--link" href="guide/">اقرأ الدليل الكامل بالصور <i data-icon="arrow"></i></a></div>
     </div>
   </section>
 
@@ -153,9 +156,9 @@
     <div class="wrap">
       <div class="center"><span class="eyebrow">ماذا بعد؟</span><h2 class="h2">اختر طريقك</h2></div>
       <div class="grid grid-3 mt-l">
-        <a class="card card--link reveal" href="guide.html"><div class="ico"><i data-icon="book"></i></div><h3 class="h3">أنا مبتدئ</h3><p>دليل مصوّر يشرح كل قسم ونصائح الأمان قبل البدء.</p><span class="btn btn--link">دليل الاستخدام <i data-icon="arrow"></i></span></a>
-        <a class="card card--link reveal" data-delay="1" href="customize.html"><div class="ico"><i data-icon="palette"></i></div><h3 class="h3">أريد نسختي الخاصة</h3><p>غيّر ألوان الأداة وشعارها ونصوصها، وانشرها باسمك.</p><span class="btn btn--link">صمّم نسختك <i data-icon="arrow"></i></span></a>
-        <a class="card card--link reveal" data-delay="2" href="faq.html"><div class="ico"><i data-icon="chat"></i></div><h3 class="h3">عندي سؤال</h3><p>إجابات عن الأمان، والأخطاء الشائعة، والفرق عن النسخة الأصلية.</p><span class="btn btn--link">الأسئلة الشائعة <i data-icon="arrow"></i></span></a>
+        <a class="card card--link reveal" href="guide/"><div class="ico"><i data-icon="book"></i></div><h3 class="h3">أنا مبتدئ</h3><p>دليل مصوّر يشرح كل قسم ونصائح الأمان قبل البدء.</p><span class="btn btn--link">دليل الاستخدام <i data-icon="arrow"></i></span></a>
+        <a class="card card--link reveal" data-delay="1" href="customize/"><div class="ico"><i data-icon="palette"></i></div><h3 class="h3">أريد نسختي الخاصة</h3><p>غيّر ألوان الأداة وشعارها ونصوصها، وانشرها باسمك.</p><span class="btn btn--link">صمّم نسختك <i data-icon="arrow"></i></span></a>
+        <a class="card card--link reveal" data-delay="2" href="faq/"><div class="ico"><i data-icon="chat"></i></div><h3 class="h3">عندي سؤال</h3><p>إجابات عن الأمان، والأخطاء الشائعة، والفرق عن النسخة الأصلية.</p><span class="btn btn--link">الأسئلة الشائعة <i data-icon="arrow"></i></span></a>
       </div>
     </div>
   </section>
@@ -168,7 +171,7 @@
         <p>انسخ الأمر، والصقه، واستمتع بجهاز أخف خلال دقائق.</p>
         <div class="btn-row" style="justify-content:center">
           <button class="btn btn--primary" data-copy><i data-icon="copy"></i>انسخ أمر التشغيل</button>
-          <a class="btn btn--ghost" href="guide.html">كيف أستخدمه؟</a>
+          <a class="btn btn--ghost" href="guide/">كيف أستخدمه؟</a>
         </div>
       </div>
     </div>

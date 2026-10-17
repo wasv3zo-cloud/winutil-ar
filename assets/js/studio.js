@@ -479,6 +479,26 @@
     });
   }
 
+  /* ---- مشاركة الثيم برابط ----
+     كل الألوان تُكتب في الرابط نفسه بترتيب FIELDS: studio/#theme=0F1F17.E8F5EC…
+     من يفتح الرابط يرى الثيم في المعاينة فورًا، ويستطيع حفظه إن كان المالك. */
+  const themeHash = () => 'theme=' + FIELDS.map((f) => state.colors[f.id].slice(1)).join('.');
+  function readThemeHash() {
+    const m = location.hash.match(/theme=([0-9A-Fa-f.]+)/); if (!m) return;
+    const parts = m[1].split('.');
+    FIELDS.forEach((f, i) => { if (HEX.test('#' + (parts[i] || ''))) state.colors[f.id] = ('#' + parts[i]).toUpperCase(); });
+    render();
+    toast('فُتح ثيم مشارك — احفظه إن أعجبك');
+  }
+  function initShare() {
+    $('#shareTheme')?.addEventListener('click', async () => {
+      const url = location.origin + location.pathname + '#' + themeHash();
+      try { await navigator.clipboard.writeText(url); } catch (e) {}
+      history.replaceState(null, '', '#' + themeHash());
+      toast('نُسخ رابط الثيم — أرسله لمن تريد');
+    });
+  }
+
   /* الإشعار المشترك من main.js (#toast) */
   function toast(msg) {
     const t = $('#toast'); if (!t) return;
@@ -493,5 +513,6 @@
   initExportReset();
   initSave();
   render();
-  loadFromGitHub();
+  loadFromGitHub().then(readThemeHash);
+  initShare();
 })();

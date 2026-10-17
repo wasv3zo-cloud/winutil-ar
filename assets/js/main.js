@@ -78,9 +78,13 @@
      بدل تكرار القائمة في كل صفحة، تُبنى هنا مرة واحدة من config.js.
      الصفحة الحالية تُعلَّم تلقائيًا (aria-current) لتظهر بلون مميز.   */
   function renderChrome() {
-    const here = location.pathname.split('/').pop() || 'index.html';
+    // ROOT = المسافة من الصفحة الحالية إلى جذر الموقع ('' أو '../' أو '../../')، من data-root في <html>
+    const ROOT = document.documentElement.dataset.root || '';
+    // مجلد القسم الحالي، مثل 'tweaks/' أو 'guide/'، لتلوين رابطه في القائمة
+    const here = (new URL(ROOT || './', location.href)).pathname;
+    const section = location.pathname.slice(here.length).split('/')[0];
     const links = (S.nav || [])
-      .map((l) => `<a href="${l.href}"${l.href === here ? ' aria-current="page"' : ''}>${l.label}</a>`)
+      .map((l) => `<a href="${ROOT}${l.href}"${section && l.href.startsWith(section + '/') ? ' aria-current="page"' : ''}>${l.label}</a>`)
       .join('');
 
     const header = $('#site-header');
@@ -88,14 +92,15 @@
       header.className = 'header';
       header.innerHTML = `
         <div class="wrap header__in">
-          <a class="brand" href="index.html" aria-label="${S.name} — الرئيسية">
+          <a class="brand" href="${ROOT || './'}" aria-label="${S.name} — الرئيسية">
             <span class="brand__mark">${icon('logo')}</span>${S.name}
           </a>
           <nav class="nav" id="nav" aria-label="القائمة الرئيسية">${links}</nav>
           <div class="header__actions">
+            <button class="icon-btn" id="searchBtn" aria-label="بحث (اختصار /)">${icon('search')}</button>
             <button class="icon-btn" id="themeBtn" aria-label="تبديل الوضع الفاتح والداكن">${icon('sun')}</button>
             <a class="icon-btn" href="${S.repo}" target="_blank" rel="noopener" aria-label="المستودع على GitHub">${icon('github')}</a>
-            <a class="btn btn--primary btn--sm header__cta" href="index.html#run">${icon('terminal')}شغّل الأداة</a>
+            <a class="btn btn--primary btn--sm header__cta" href="${ROOT}#run">${icon('terminal')}شغّل الأداة</a>
             <button class="icon-btn menu-toggle" id="menuBtn" aria-label="فتح القائمة" aria-expanded="false" aria-controls="nav">${icon('menu')}</button>
           </div>
         </div>`;
@@ -108,24 +113,26 @@
         <div class="wrap">
           <div class="footer__grid">
             <div>
-              <a class="brand" href="index.html"><span class="brand__mark">${icon('logo')}</span>${S.name}</a>
+              <a class="brand" href="${ROOT || './'}"><span class="brand__mark">${icon('logo')}</span>${S.name}</a>
               <p class="mt-s">أداة مجانية مفتوحة المصدر لتسريع ويندوز وتنظيفه، بواجهة عربية كاملة.</p>
             </div>
-            <div><h4>الصفحات</h4><ul>${(S.nav || []).map((l) => `<li><a href="${l.href}">${l.label}</a></li>`).join('')}</ul></div>
+            <div><h4>الصفحات</h4><ul>${(S.nav || []).map((l) => `<li><a href="${ROOT}${l.href}">${l.label}</a></li>`).join('')}</ul></div>
             <div><h4>المشروع</h4><ul>
               <li><a href="${S.repo}" target="_blank" rel="noopener">الكود على GitHub</a></li>
               <li><a href="${S.issues}" target="_blank" rel="noopener">أبلغ عن مشكلة</a></li>
-              <li><a href="cheatsheet.html">دليل تعديل الموقع</a></li>
+              <li><a href="${ROOT}cheatsheet/">دليل تعديل الموقع</a></li>
+              <li><a href="${ROOT}changelog/">سجل الإصدارات</a></li>
+              <li><a href="${ROOT}studio/">استوديو التصميم</a></li>
             </ul></div>
           </div>
-          <div class="footer__bottom">${S.footer || ''}</div>
+          <div class="footer__bottom"><span>${S.footer || ''}</span><span id="buildBadge" class="build-badge" hidden></span></div>
         </div>`;
     }
 
     // الزر العائم لدليل التعديل (لا يظهر داخل صفحة الدليل نفسها)
-    if (here !== 'cheatsheet.html') {
+    if (section !== 'cheatsheet') {
       document.body.insertAdjacentHTML('beforeend',
-        `<a class="fab" href="cheatsheet.html" aria-label="دليل تعديل الموقع">${icon('edit')}<span>دليل التعديل</span></a>`);
+        `<a class="fab" href="${ROOT}cheatsheet/" aria-label="دليل تعديل الموقع">${icon('edit')}<span>دليل التعديل</span></a>`);
     }
     // عناصر مشتركة: الإشعار ومكبّر الصور
     document.body.insertAdjacentHTML('beforeend',
@@ -300,6 +307,115 @@
   }
 
 
+
+  /* ---------- 12. البحث الموحّد ----------
+     زر العدسة أو الضغط على «/» يفتح نافذة تبحث في الصفحات والتحسينات
+     والبرامج معًا. الفهرس assets/data/search.json يولّده البناء التلقائي.  */
+  function initSearch() {
+    const ROOT = document.documentElement.dataset.root || '';
+    document.body.insertAdjacentHTML('beforeend', `
+      <div class="spotlight" id="spotlight" hidden>
+        <div class="spotlight__box" role="dialog" aria-label="بحث في الموقع">
+          <div class="spotlight__input">${icon('search')}<input id="spotInput" type="search" placeholder="ابحث عن تحسين، برنامج، أو صفحة…" autocomplete="off"><kbd>Esc</kbd></div>
+          <ul class="spotlight__list" id="spotList"></ul>
+        </div>
+      </div>`);
+    const box = $('#spotlight'), input = $('#spotInput'), list = $('#spotList');
+    let index = null, active = 0, results = [];
+    // تطبيع عربي بسيط: يوحّد الهمزات والتاء المربوطة والياء، ويزيل التشكيل
+    const norm = (t) => (t || '').toLowerCase().replace(/[ً-ْ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+    const open = async () => {
+      box.hidden = false; input.value = ''; input.focus();
+      if (!index) {
+        try { index = await (await fetch(ROOT + 'assets/data/search.json')).json(); } catch (e) { index = []; }
+      }
+      render();
+    };
+    const close = () => { box.hidden = true; };
+    const render = () => {
+      const q = norm(input.value.trim());
+      results = (q ? index.filter((r) => norm(r.t + ' ' + r.d).includes(q)) : index.filter((r) => r.k === 'صفحة')).slice(0, 12);
+      active = 0;
+      list.innerHTML = results.length ? results.map((r, i) =>
+        `<li><a href="${ROOT}${r.u}" class="${i === 0 ? 'on' : ''}"><span class="tag">${r.k}</span><b>${r.t}</b><span class="muted small">${r.d || ''}</span></a></li>`).join('')
+        : '<li class="muted" style="padding:16px">لا توجد نتائج</li>';
+    };
+    input.addEventListener('input', render);
+    input.addEventListener('keydown', (e) => {
+      const links = $$('a', list);
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        active = (active + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+        links.forEach((a, i) => a.classList.toggle('on', i === active));
+        links[active]?.scrollIntoView({ block: 'nearest' });
+      }
+      if (e.key === 'Enter' && links[active]) location.href = links[active].href;
+    });
+    box.addEventListener('click', (e) => { if (e.target === box) close(); });
+    $('#searchBtn')?.addEventListener('click', open);
+    addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !box.hidden) close();
+      if (e.key === '/' && box.hidden && !/input|textarea/i.test(document.activeElement.tagName)) { e.preventDefault(); open(); }
+    });
+  }
+
+  /* ---------- 13. فلترة المكتبات (التحسينات والبرامج) ---------- */
+  function initLibFilter() {
+    const input = $('#libFilter'); if (!input) return;
+    const cards = $$('.lib-card'), empty = $('#libEmpty');
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      let shown = 0;
+      cards.forEach((c) => { const hit = !q || c.dataset.filter.toLowerCase().includes(q); c.hidden = !hit; if (hit) shown++; });
+      $$('.lib-group').forEach((h) => { const grid = h.nextElementSibling; h.hidden = grid && !$$('.lib-card:not([hidden])', grid).length; });
+      if (empty) empty.style.display = shown ? 'none' : 'block';
+    });
+  }
+
+  /* ---------- 14. شارة الإصدار والبصمة ----------
+     تقرأ assets/data/build.json (يولّده البناء) وتعرض الإصدار في التذييل،
+     والبصمة SHA256 في أي عنصر data-build="sha256".                     */
+  async function initBuildInfo() {
+    const ROOT = document.documentElement.dataset.root || '';
+    let b;
+    try { b = await (await fetch(ROOT + 'assets/data/build.json', { cache: 'no-store' })).json(); } catch (e) { return; }
+    const badge = $('#buildBadge');
+    if (badge && b.version) { badge.hidden = false; badge.innerHTML = `${icon('check')} الإصدار ${b.version} · ${b.date}`; }
+    $$('[data-build]').forEach((el) => { if (b[el.dataset.build]) el.textContent = b[el.dataset.build]; });
+    const info = $('#buildInfo'); if (info && b.version) info.textContent = `آخر إصدار: ${b.version}`;
+  }
+
+  /* ---------- 15. الجوال ----------
+     الأداة لا تعمل على الجوال، فبدل «نسخ الأمر» نعرض «أرسل الرابط لجهازي». */
+  function initMobile() {
+    if (!/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) return;
+    $$('.cmd').forEach((cmd) => {
+      if (cmd.dataset.mobile) return;
+      cmd.dataset.mobile = '1';
+      cmd.insertAdjacentHTML('beforebegin', `<div class="mobile-note">${icon('windows')}<div><b>الأداة تعمل على ويندوز فقط.</b><br>أرسل الرابط لنفسك وافتحه من الكمبيوتر.</div><button class="btn btn--primary btn--sm" type="button">أرسل الرابط</button></div>`);
+      cmd.previousElementSibling.querySelector('button').addEventListener('click', async () => {
+        const data = { title: S.name, text: 'أداة WinUtil العربي لتسريع ويندوز', url: location.origin + location.pathname };
+        try { if (navigator.share) await navigator.share(data); else { await copyText(data.url); toast('نُسخ الرابط'); } } catch (e) {}
+      });
+    });
+  }
+
+  /* ---------- 16. طرفية حية في الرئيسية ----------
+     الأمر يُكتب حرفًا حرفًا مرة واحدة عند فتح الصفحة (ويُعرض كاملًا فورًا
+     لمن فعّل «تقليل الحركة»).                                          */
+  function initTyping() {
+    const pre = $('.hero .cmd pre[data-cmd]'); if (!pre) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const full = S.command; let i = 0;
+    pre.textContent = ''; pre.classList.add('typing');
+    const step = () => {
+      i = Math.min(full.length, i + 3);
+      pre.textContent = full.slice(0, i);
+      if (i < full.length) setTimeout(step, 12); else pre.classList.remove('typing');
+    };
+    setTimeout(step, 400);
+  }
+
   /* ---------- 11. التشغيل ---------- */
   renderChrome();
   renderIcons();
@@ -311,4 +427,9 @@
   initReveal();
   initFaqSearch();
   initToc();
+  initSearch();
+  initLibFilter();
+  initBuildInfo();
+  initMobile();
+  initTyping();
 })();

@@ -12,22 +12,24 @@ window.SITE = {
 
   /* أمر التشغيل — يظهر في كل صندوق نسخ في الموقع */
   command:
-    "iex ([Text.Encoding]::UTF8.GetString((New-Object Net.WebClient).DownloadData('https://raw.githubusercontent.com/wasv3zo-cloud/2219was/release/winutil.ps1')).TrimStart([char]0xFEFF))",
+    "iex ([Text.Encoding]::UTF8.GetString((New-Object Net.WebClient).DownloadData('https://raw.githubusercontent.com/wasv3zo-cloud/winutil-ar/release/winutil.ps1')).TrimStart([char]0xFEFF))",
 
   /* رابط مستودع الأداة على GitHub */
-  repo: 'https://github.com/wasv3zo-cloud/2219was',
+  repo: 'https://github.com/wasv3zo-cloud/winutil-ar',
 
   /* رابط الإبلاغ عن مشكلة أو طرح سؤال */
   /* ملاحظة: عند تفعيل Issues في إعدادات المستودع غيّره إلى: .../2219was/issues */
-  issues: 'https://github.com/wasv3zo-cloud/2219was',
+  issues: 'https://github.com/wasv3zo-cloud/winutil-ar',
 
-  /* روابط القائمة العلوية: النص الظاهر + اسم الصفحة.
-     لإضافة صفحة جديدة: أضف سطرًا بالشكل نفسه. */
+  /* روابط القائمة العلوية: النص الظاهر + مجلد الصفحة (بالنسبة لجذر الموقع).
+     لإضافة صفحة جديدة: أنشئ مجلدًا فيه index.html، ثم أضف سطرًا بالشكل نفسه. */
   nav: [
-    { label: 'الرئيسية', href: 'index.html' },
-    { label: 'دليل الاستخدام', href: 'guide.html' },
-    { label: 'صمّم نسختك', href: 'customize.html' },
-    { label: 'الأسئلة الشائعة', href: 'faq.html' },
+    { label: 'دليل الاستخدام', href: 'guide/' },
+    { label: 'التحسينات', href: 'tweaks/' },
+    { label: 'البرامج', href: 'apps/' },
+    { label: 'منشئ الإعداد', href: 'build/' },
+    { label: 'صمّم نسختك', href: 'customize/' },
+    { label: 'الأسئلة', href: 'faq/' },
   ],
 
   /* نص أسفل الصفحة */
