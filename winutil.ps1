@@ -3,7 +3,7 @@
     Author         : Chris Titus @christitustech
     Runspace Author: @DeveloperDurp
     GitHub         : https://github.com/ChrisTitusTech
-    Version        : 26.10.16
+    Version        : 26.10.17
 #>
 
 param (
@@ -170,7 +170,7 @@ if (`$launch.ScriptPath) {
     & `$launch.ScriptPath @invokeParameters
 } else {
     # Arabic build: fetch this fork's script and decode it as UTF-8 so the Arabic text survives
-    `$remoteBytes = (New-Object Net.WebClient).DownloadData('https://raw.githubusercontent.com/wasv3zo-cloud/2219was/release/winutil.ps1')
+    `$remoteBytes = (New-Object Net.WebClient).DownloadData('https://raw.githubusercontent.com/wasv3zo-cloud/winutil-ar/release/winutil.ps1')
     `$remoteScript = [ScriptBlock]::Create([Text.Encoding]::UTF8.GetString(`$remoteBytes).TrimStart([char]0xFEFF))
     & `$remoteScript @invokeParameters
 }
@@ -226,7 +226,7 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 
 # Variable to sync between runspaces
 $sync = [Hashtable]::Synchronized(@{})
-$sync.version = "26.10.16"
+$sync.version = "26.10.17"
 $sync.IsLocalCompile = "false" -eq "true"
 $sync.configs = @{}
 $sync.Buttons = [System.Collections.Generic.List[PSObject]]::new()
@@ -643,7 +643,8 @@ function Find-AppsByNameOrDescription {
                         $textMatch = -not $hasSearch -or
                             $appEntry.Content -like "*$escapedSearchString*" -or
                             $appEntry.Description -like "*$escapedSearchString*" -or
-                            $appTag -like "*$escapedSearchString*"
+                            $appTag -like "*$escapedSearchString*" -or
+                            (Test-WinUtilSearchAlias -SearchString $SearchString -AppTag $appTag)
 
                         if ($categoryMatch -and $textMatch) {
                             $appControl.Visibility = [Windows.Visibility]::Visible
@@ -8546,6 +8547,78 @@ function Test-WinUtilPackageManager {
     return $status
 }
 
+function Test-WinUtilSearchAlias {
+    <#
+        .SYNOPSIS
+            Whether an Arabic search text names the given app, e.g. "كروم" for Chrome
+
+        .DESCRIPTION
+            App names in the catalog are in English, so a user typing the Arabic name of an
+            app found nothing. This holds the Arabic names people commonly type for the most
+            used apps and matches the search text against them.
+
+            Both sides are normalised first: diacritics are removed and the letter forms that
+            are often typed interchangeably are unified (أ إ آ -> ا, ة -> ه, ى -> ي), so
+            "تيليجرام" and "تلجرام" style spellings are listed once per spelling, not per hamza.
+
+        .PARAMETER SearchString
+            The text the user typed in the Install tab search box.
+
+        .PARAMETER AppTag
+            The app's checkbox key, such as WPFInstallchrome.
+    #>
+    param(
+        [string]$SearchString,
+        [string]$AppTag
+    )
+
+    $normalize = {
+        param([string]$Text)
+        $Text = $Text.ToLowerInvariant() -replace '[ً-ْـ]', ''
+        $Text = $Text -replace '[أإآ]', ([string][char]0x0627)
+        $Text = $Text -replace 'ة', ([string][char]0x0647)
+        $Text -replace 'ى', ([string][char]0x064A)
+    }
+
+    $query = (& $normalize $SearchString).Trim()
+    if ($query.Length -lt 2 -or [string]::IsNullOrWhiteSpace($AppTag)) {
+        return $false
+    }
+
+    if ($null -eq $script:WinUtilSearchAliases) {
+        # Arabic name -> app keys (without the WPFInstall prefix). Several spellings per app.
+        $aliases = @{
+            'كروم' = 'chrome'; 'جوجل كروم' = 'chrome'; 'قوقل كروم' = 'chrome'
+            'فايرفوكس' = 'firefox'; 'فيرفوكس' = 'firefox'
+            'بريف' = 'brave'; 'ايدج' = 'edge'; 'فيفالدي' = 'vivaldi'
+            'ديسكورد' = 'discord'; 'دسكورد' = 'discord'
+            'تيليجرام' = 'telegram'; 'تلجرام' = 'telegram'; 'تلغرام' = 'telegram'; 'تيليقرام' = 'telegram'
+            'واتساب' = 'whatsapp'; 'واتس اب' = 'whatsapp'
+            'زوم' = 'zoom'; 'زووم' = 'zoom'; 'تيمز' = 'teams'; 'سلاك' = 'slack'; 'سيجنال' = 'signal'
+            'ستيم' = 'steam'; 'ايبك' = 'epicgames'; 'ابيك' = 'epicgames'
+            'في ال سي' = 'vlc'; 'فلك' = 'vlc'; 'اوبس' = 'obs'
+            'سفن زيب' = '7zip'; 'وين رار' = 'winrar'
+            'في اس كود' = 'vscode'; 'فيجوال ستوديو كود' = 'vscode'; 'فيجوال ستوديو' = 'visualstudio2022'
+            'بايثون' = 'python3'; 'جيت' = 'git'; 'جت' = 'git'; 'نود' = 'nodejs'; 'دوكر' = 'dockerdesktop'
+            'نوتباد' = 'notepadplus'; 'نوت باد' = 'notepadplus'
+            'ليبر اوفيس' = 'libreoffice'; 'اوبسيديان' = 'obsidian'; 'ادوبي' = 'adobe'; 'اكروبات' = 'adobe'
+            'ثندربيرد' = 'thunderbird'; 'باور تويز' = 'powertoys'; 'افريثينج' = 'everything'
+            'كيوبت' = 'qbittorrent'; 'تورنت' = 'qbittorrent'; 'سومطرة' = 'sumatra'
+        }
+        $script:WinUtilSearchAliases = @{}
+        foreach ($term in $aliases.Keys) {
+            $script:WinUtilSearchAliases[(& $normalize $term)] = 'WPFInstall' + $aliases[$term]
+        }
+    }
+
+    foreach ($entry in $script:WinUtilSearchAliases.GetEnumerator()) {
+        if ($entry.Value -eq $AppTag -and ($entry.Key.Contains($query) -or $query.Contains($entry.Key))) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function Update-WinUtilAppCategoryChip {
     <#
         .SYNOPSIS
@@ -10196,7 +10269,7 @@ function Invoke-WPFImpex {
                     }
                     $jsonFile = $allConfs | ConvertTo-Json
                     $jsonFile | Out-File $Config -Force
-                    "iex ""& { `$([Text.Encoding]::UTF8.GetString((New-Object Net.WebClient).DownloadData('https://raw.githubusercontent.com/wasv3zo-cloud/2219was/release/winutil.ps1')).TrimStart([char]0xFEFF)) } -Config '$Config'""" | Set-Clipboard
+                    "iex ""& { `$([Text.Encoding]::UTF8.GetString((New-Object Net.WebClient).DownloadData('https://raw.githubusercontent.com/wasv3zo-cloud/winutil-ar/release/winutil.ps1')).TrimStart([char]0xFEFF)) } -Config '$Config'""" | Set-Clipboard
                 }
             } catch {
                 Write-Error "An error occurred while exporting: $_"
