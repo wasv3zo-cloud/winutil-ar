@@ -18,7 +18,8 @@
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const ROOT = document.documentElement.dataset.root || '';
-  const RAW = (S.command.match(/https:\/\/raw\.githubusercontent\.com\/[^']+/) || [])[0];
+  // أمر التشغيل يأتي من config.js وحده (مصدر واحد)؛ نأخذ منه جزء التنزيل لنمرّر ملف الإعداد
+  const LOADER = (S.command || '').replace(/^iex \(/, '').replace(/\)$/, '');
   const CONFIG_NAME = 'winutil-config.json';
 
   /* ---------- 1. الحالة ---------- */
@@ -136,7 +137,7 @@
 
   // نفس صيغة الأمر الذي تنسخه الأداة عند «تصدير» الإعداد
   const command = () =>
-    `iex "& { $([Text.Encoding]::UTF8.GetString((New-Object Net.WebClient).DownloadData('${RAW}')).TrimStart([char]0xFEFF)) } -Config '$env:USERPROFILE\\Downloads\\${CONFIG_NAME}'"`;
+    `iex "& { $(${LOADER}) } -Config '$env:USERPROFILE\\Downloads\\${CONFIG_NAME}'"`;
 
   $('#dlBtn').addEventListener('click', () => {
     const a = document.createElement('a');
