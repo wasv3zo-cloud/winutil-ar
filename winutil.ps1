@@ -10002,6 +10002,7 @@ function Invoke-WPFButtonAction {
         "WPFGetInstalled" {Invoke-WPFGetInstalled -CheckBox "winget"}
         "WPFGetInstalledTweaks" {Invoke-WPFGetInstalled -CheckBox "tweaks"}
         "WPFAppxRemoval" {Invoke-WPFTab "WPFTab6BT"}
+        "WPFOpenWebsite" {Start-Process "https://wasv3zo-cloud.github.io/winutil-ar/"}
         "WPFBackToTweaks" {Invoke-WPFTab "WPFTab2BT"}
         "WPFInstallSelectedAppx" {Invoke-WPFAppxInstall}
         "WPFRemoveSelectedAppx" {Invoke-WPFAppxRemoval}
@@ -18775,6 +18776,7 @@ $inputXML = @'
                                     <Button Name="WPFClearTweaksSelection" Content=" مسح " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFGetInstalledTweaks" Content=" تحديد التحسينات المطبقة " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFAppxRemoval" Content=" إزالة تطبيقات AppX " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFOpenWebsite" Content=" موقع الأداة " ToolTip="افتح موقع WinUtil العربي: شرح كل تحسين، ودليل الاستخدام، ومنشئ الإعداد" Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                 </WrapPanel>
                             </StackPanel>
 
