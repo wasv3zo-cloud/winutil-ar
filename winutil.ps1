@@ -18725,7 +18725,7 @@ $inputXML = @'
                         <ToggleButton Name="WPFSearchChipCommunications"  Content="التواصل"    Style="{StaticResource FilterChipToggleStyle}"/>
                         <ToggleButton Name="WPFSearchChipDevelopment"     Content="التطوير"       Style="{StaticResource FilterChipToggleStyle}"/>
                         <ToggleButton Name="WPFSearchChipDocument"        Content="المستندات"          Style="{StaticResource FilterChipToggleStyle}"/>
-                        <ToggleButton Name="WPFSearchChipGames"           Content="الألعاب"             Style="{StaticResource FilterChipToggleStyle}"/>
+                        <ToggleButton Name="WPFSearchChipGames"           Content="Games"             Style="{StaticResource FilterChipToggleStyle}"/>
                         <ToggleButton Name="WPFSearchChipMicrosoftTools"  Content="أدوات مايكروسوفت"   Style="{StaticResource FilterChipToggleStyle}"/>
                         <ToggleButton Name="WPFSearchChipMultimediaTools" Content="الوسائط المتعددة"  Style="{StaticResource FilterChipToggleStyle}"/>
                         <ToggleButton Name="WPFSearchChipProTools"        Content="أدوات احترافية"         Style="{StaticResource FilterChipToggleStyle}"/>
