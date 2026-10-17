@@ -57,5 +57,48 @@
     "WPFAppxMicrosoft_BingNews",
     "WPFAppxMicrosoft_Copilot",
     "WPFAppxMicrosoft_BingSearch"
+  ],
+  "Gaming": [
+    "WPFTweaksRestorePoint",
+    "WPFTweaksTelemetry",
+    "WPFTweaksActivity",
+    "WPFTweaksConsumerFeatures",
+    "WPFTweaksLocation",
+    "WPFTweaksDeliveryOptimization",
+    "WPFTweaksDeleteTempFiles",
+    "WPFTweaksEndTaskOnTaskbar",
+    "WPFTweaksWidget",
+    "WPFTweaksDisableStoreSearch",
+    "WPFTweaksDisableBGapps",
+    "WPFTweaksRazerBlock",
+    "WPFTweaksLogiBlock"
+  ],
+  "Privacy": [
+    "WPFTweaksRestorePoint",
+    "WPFTweaksTelemetry",
+    "WPFTweaksActivity",
+    "WPFTweaksLocation",
+    "WPFTweaksConsumerFeatures",
+    "WPFTweaksWPBT",
+    "WPFTweaksPreventDeviceMetadataFromNetwork",
+    "WPFTweaksDisableStoreSearch",
+    "WPFTweaksDeliveryOptimization",
+    "WPFTweaksDisableBGapps",
+    "WPFTweaksWindowsAI"
+  ],
+  "LowEnd": [
+    "WPFTweaksRestorePoint",
+    "WPFTweaksTelemetry",
+    "WPFTweaksActivity",
+    "WPFTweaksConsumerFeatures",
+    "WPFTweaksDeliveryOptimization",
+    "WPFTweaksServices",
+    "WPFTweaksDeleteTempFiles",
+    "WPFTweaksDiskCleanup",
+    "WPFTweaksWidget",
+    "WPFTweaksDisableBGapps",
+    "WPFTweaksDisplay",
+    "WPFTweaksDisableExplorerAutoDiscovery",
+    "WPFTweaksEndTaskOnTaskbar"
   ]
 }

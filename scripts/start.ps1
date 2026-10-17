@@ -8,7 +8,7 @@
 
 param (
     [string]$Config,
-    [ValidateSet("Standard", "Minimal", "Advanced", "")]
+    [ValidateSet("Standard", "Minimal", "Advanced", "Gaming", "Privacy", "LowEnd", "")]
     [string]$Preset,
     [switch]$Offline
 )

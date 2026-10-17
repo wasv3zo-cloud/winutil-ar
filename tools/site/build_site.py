@@ -38,7 +38,8 @@ RISK = {
     "z__Advanced Tweaks - CAUTION": ("adv", "متقدم — انتبه"),
     "Performance Plans - NOT FOR LAPTOPS": ("warn", "ليس للحواسيب المحمولة"),
 }
-PRESET_AR = {"Standard": "قياسي", "Minimal": "أساسي", "Advanced": "متقدم"}
+PRESET_AR = {"Standard": "قياسي", "Minimal": "أساسي", "Advanced": "متقدم",
+             "Gaming": "للألعاب", "Privacy": "للخصوصية", "LowEnd": "للأجهزة الضعيفة"}
 
 
 def load_json(name):

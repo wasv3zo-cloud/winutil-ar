@@ -1422,6 +1422,9 @@
                                     <Button Name="WPFstandard" Content=" قياسي " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFminimal" Content=" أساسي " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFAdvanced" Content=" متقدم " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFGaming" Content=" للألعاب " ToolTip="تحسينات تخفّف الحمل أثناء اللعب: إيقاف التتبع وتطبيقات الخلفية وبرامج Razer وLogitech التلقائية" Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFPrivacy" Content=" للخصوصية " ToolTip="أقصى خصوصية: إيقاف القياس عن بُعد والموقع والنشاط والذكاء الاصطناعي في ويندوز" Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFLowEnd" Content=" للأجهزة الضعيفة " ToolTip="تحسينات للأجهزة القديمة: الخدمات اليدوية، أفضل أداء مرئي، تنظيف القرص وإيقاف تطبيقات الخلفية" Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFClearTweaksSelection" Content=" مسح " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFGetInstalledTweaks" Content=" تحديد التحسينات المطبقة " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFAppxRemoval" Content=" إزالة تطبيقات AppX " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
