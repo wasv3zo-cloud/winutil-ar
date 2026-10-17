@@ -17,6 +17,14 @@
     return
   }
 
+  # A restore point is always taken before tweaks run, even when the user did not tick it,
+  # so every change WinUtil makes can be rolled back from Windows System Restore
+  $Tweaks = @($Tweaks)
+  if ($Tweaks.Count -gt 0 -and $Tweaks -notcontains "WPFTweaksRestorePoint") {
+    $Tweaks = @("WPFTweaksRestorePoint") + $Tweaks
+    Write-WinUtilLog -Component "Tweaks" -Message "Restore point added automatically before the selected tweaks."
+  }
+
   Write-WinUtilLog -Component "Tweaks" -Message "Tweaks requested: $(@($Tweaks).Count) selected tweak(s), DNS provider: $dnsProvider"
 
   Start-WinUtilJob -Name "Tweaks" -Description "تطبيق التحسينات" -Parameters @{

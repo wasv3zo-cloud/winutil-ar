@@ -312,8 +312,10 @@ Describe "Invoke-WPFtweaksbutton" {
         Should -Invoke -CommandName Start-WinUtilJob -Times 1 -Exactly -ParameterFilter {
             $Name -eq "Tweaks" -and $ScriptBlock -is [scriptblock]
         }
-        $script:capturedTweaksJob.Parameters.Tweaks | Should -HaveCount 2
-        $script:capturedTweaksJob.Parameters.Tweaks[0] | Should -Be "WPFTweaksTelemetry"
+        # the restore point is added in front of the selection automatically
+        $script:capturedTweaksJob.Parameters.Tweaks | Should -HaveCount 3
+        $script:capturedTweaksJob.Parameters.Tweaks[0] | Should -Be "WPFTweaksRestorePoint"
+        $script:capturedTweaksJob.Parameters.Tweaks[1] | Should -Be "WPFTweaksTelemetry"
         $script:capturedTweaksJob.Parameters.DnsProvider | Should -Be "Cloudflare"
     }
 
@@ -328,12 +330,12 @@ Describe "Invoke-WPFtweaksbutton" {
         Should -Invoke -CommandName Set-WinUtilDNS -Times 1 -Exactly -ParameterFilter {
             $DNSProvider -eq "Cloudflare"
         }
-        Should -Invoke -CommandName Invoke-WinUtilTweaks -Times 2 -Exactly
+        Should -Invoke -CommandName Invoke-WinUtilTweaks -Times 3 -Exactly
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "جارٍ تطبيق WPFTweaksTelemetry (1/2)" -and $Percent -eq 0
+            $Status -eq "جارٍ تطبيق WPFTweaksTelemetry (2/3)" -and $Percent -eq 33
         }
         Should -Invoke -CommandName Step-WinUtilJob -Times 1 -Exactly -ParameterFilter {
-            $Status -eq "جارٍ تطبيق WPFTweaksServices (2/2)" -and $Percent -eq 50
+            $Status -eq "جارٍ تطبيق WPFTweaksServices (3/3)" -and $Percent -eq 67
         }
     }
 
@@ -346,7 +348,8 @@ Describe "Invoke-WPFtweaksbutton" {
         $jobParameters = $script:capturedTweaksJob.Parameters
 
         { & $script:capturedTweaksJob.ScriptBlock @jobParameters } | Should -Throw -ExpectedMessage "*DNS change to Cloudflare failed*"
-        Should -Invoke -CommandName Invoke-WinUtilTweaks -Times 0 -Exactly
+        # only the automatic restore point, taken before the DNS change, ran
+        Should -Invoke -CommandName Invoke-WinUtilTweaks -Times 1 -Exactly
     }
 
     It "carries on when the DNS change succeeds" {
@@ -357,7 +360,18 @@ Describe "Invoke-WPFtweaksbutton" {
         $jobParameters = $script:capturedTweaksJob.Parameters
         & $script:capturedTweaksJob.ScriptBlock @jobParameters
 
-        Should -Invoke -CommandName Invoke-WinUtilTweaks -Times 1 -Exactly
+        # the automatic restore point, then the selected tweak
+        Should -Invoke -CommandName Invoke-WinUtilTweaks -Times 2 -Exactly
+    }
+
+    It "adds a restore point when the user did not select one, and only once when they did" {
+        $script:sync.selectedTweaks.Add("WPFTweaksTelemetry")
+        Invoke-WPFtweaksbutton
+        @($script:capturedTweaksJob.Parameters.Tweaks) | Should -Be @("WPFTweaksRestorePoint", "WPFTweaksTelemetry")
+
+        $script:sync.selectedTweaks.Add("WPFTweaksRestorePoint")
+        Invoke-WPFtweaksbutton
+        @($script:capturedTweaksJob.Parameters.Tweaks | Where-Object { $_ -eq "WPFTweaksRestorePoint" }) | Should -HaveCount 1
     }
 
     It "takes the restore point before any other tweak runs" {
