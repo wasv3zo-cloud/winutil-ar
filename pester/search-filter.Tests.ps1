@@ -112,6 +112,7 @@ namespace Windows.Controls
 
     . (Join-Path $script:repoRoot "functions\private\Find-AppsByNameOrDescription.ps1")
     . (Join-Path $script:repoRoot "functions\private\Find-TweaksByNameOrDescription.ps1")
+    . (Join-Path $script:repoRoot "functions\private\Test-WinUtilSearchAlias.ps1")
 
     function script:New-WinUtilSearchCollection {
         return ,[System.Collections.ArrayList]::new()
@@ -551,5 +552,28 @@ Describe "Find-TweaksByNameOrDescription" {
         $appxItem.Visibility | Should -Be ([Windows.Visibility]::Visible)
         $tweakCategory.Border.Visibility | Should -Be ([Windows.Visibility]::Visible)
         $tweakItem.Visibility | Should -Be ([Windows.Visibility]::Visible)
+    }
+}
+
+Describe "Test-WinUtilSearchAlias" {
+    It "matches the Arabic name of an app" {
+        Test-WinUtilSearchAlias -SearchString "كروم" -AppTag "WPFInstallchrome" | Should -BeTrue
+    }
+
+    It "ignores hamza and diacritic differences" {
+        Test-WinUtilSearchAlias -SearchString "إيدج" -AppTag "WPFInstalledge" | Should -BeTrue
+        Test-WinUtilSearchAlias -SearchString "تِلغرام" -AppTag "WPFInstalltelegram" | Should -BeTrue
+    }
+
+    It "matches a partial Arabic name while typing" {
+        Test-WinUtilSearchAlias -SearchString "ديسك" -AppTag "WPFInstalldiscord" | Should -BeTrue
+    }
+
+    It "does not match a different app" {
+        Test-WinUtilSearchAlias -SearchString "كروم" -AppTag "WPFInstallfirefox" | Should -BeFalse
+    }
+
+    It "ignores searches shorter than two letters" {
+        Test-WinUtilSearchAlias -SearchString "ك" -AppTag "WPFInstallchrome" | Should -BeFalse
     }
 }
