@@ -118,9 +118,10 @@
 
   $('#wizardApply').addEventListener('click', () => {
     picked.clear();
-    const base = answers.privacy === 'high' ? 'Standard' : 'Minimal';
-    (presets[base] || []).forEach((k) => picked.add(k));
-    if (answers.privacy === 'high') ['WPFTweaksDisableBGapps', 'WPFTweaksWindowsAI'].forEach((k) => picked.add(k));
+    // الأساس: «أساسي»، ثم وصفة الخصوصية أو الألعاب أو الأجهزة الضعيفة حسب الإجابات
+    (presets.Minimal || []).forEach((k) => picked.add(k));
+    if (answers.privacy === 'high') (presets.Privacy || presets.Standard || []).forEach((k) => picked.add(k));
+    if (answers.use === 'gaming') (presets.Gaming || []).forEach((k) => picked.add(k));
     if (answers.device === 'laptop') picked.delete('WPFTweaksHiber');          // الإسبات مفيد للمحمول
     (USE_APPS[answers.use] || []).forEach((k) => picked.add('WPFInstall' + k));
     // أبقِ فقط ما هو موجود فعلًا في هذه النسخة من الأداة
