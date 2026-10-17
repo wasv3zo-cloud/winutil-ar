@@ -170,7 +170,7 @@ if (`$launch.ScriptPath) {
     & `$launch.ScriptPath @invokeParameters
 } else {
     # Arabic build: fetch this fork's script and decode it as UTF-8 so the Arabic text survives
-    `$remoteBytes = (New-Object Net.WebClient).DownloadData('https://raw.githubusercontent.com/wasv3zo-cloud/2219was/release/winutil.ps1')
+    `$remoteBytes = (New-Object Net.WebClient).DownloadData('https://raw.githubusercontent.com/wasv3zo-cloud/winutil-ar/release/winutil.ps1')
     `$remoteScript = [ScriptBlock]::Create([Text.Encoding]::UTF8.GetString(`$remoteBytes).TrimStart([char]0xFEFF))
     & `$remoteScript @invokeParameters
 }
