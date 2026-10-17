@@ -158,6 +158,38 @@
             $label = New-Object Windows.Controls.Label
             $categoryCleanName = Get-WinUtilCategoryDisplayName -Category $category
             $label.Content = $categoryCleanName
+
+            # Tweaks categories get a risk badge beside the header (آمن، متقدم — انتبه…)
+            $categoryRisk = Get-WinUtilCategoryRisk -Category $category
+            if ($null -ne $categoryRisk) {
+                $riskColor = [Windows.Media.ColorConverter]::ConvertFromString($categoryRisk.Color)
+
+                $riskText = New-Object Windows.Controls.TextBlock
+                $riskText.Text = $categoryRisk.Text
+                $riskText.FontSize = 11
+                $riskText.FontWeight = [Windows.FontWeights]::SemiBold
+                $riskText.Foreground = New-Object Windows.Media.SolidColorBrush($riskColor)
+
+                $riskBadge = New-Object Windows.Controls.Border
+                $riskBadge.CornerRadius = New-Object Windows.CornerRadius(8)
+                $riskBadge.Padding = New-Object Windows.Thickness(8, 1, 8, 2)
+                $riskBadge.Margin = New-Object Windows.Thickness(10, 0, 0, 0)
+                $riskBadge.VerticalAlignment = "Center"
+                $riskBadge.Background = New-Object Windows.Media.SolidColorBrush(
+                    [Windows.Media.Color]::FromArgb(38, $riskColor.R, $riskColor.G, $riskColor.B))
+                $riskBadge.Child = $riskText
+
+                $headerName = New-Object Windows.Controls.TextBlock
+                $headerName.Text = $categoryCleanName
+                $headerName.VerticalAlignment = "Center"
+
+                $headerPanel = New-Object Windows.Controls.StackPanel
+                $headerPanel.Orientation = "Horizontal"
+                $headerPanel.Children.Add($headerName) | Out-Null
+                $headerPanel.Children.Add($riskBadge) | Out-Null
+                $label.Content = $headerPanel
+                $label.ToolTip = $categoryRisk.Text
+            }
             $label.Focusable = $true
             $label.IsTabStop = $true
             [System.Windows.Automation.AutomationProperties]::SetName($label, $categoryCleanName)
