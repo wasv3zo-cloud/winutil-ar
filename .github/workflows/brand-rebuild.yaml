@@ -1,15 +1,24 @@
-# إعادة البناء بعد تغيير الهوية البصرية
+# البناء والنشر التلقائي
 #
-# يعمل تلقائيًا عندما تحفظ صفحة «استوديو التصميم» ملفًا داخل branding/ على فرع main.
+# يعمل عند أي تعديل في الأداة على فرع main: الهوية (branding/)، الترجمات والإعدادات (config/)،
+# الكود (functions/، scripts/، xaml/) أو أدوات البناء (tools/).
 # 1. يطبّق branding/brand.json على ملفات المصدر (tools/Apply-Brand.ps1) ويحفظها في main.
 # 2. يبني winutil.ps1 (Compile.ps1) وينشره على فرع release، فيصل للمستخدمين عبر أمر التشغيل.
-# 3. يحدّث لون الموقع وشعاره على فرع gh-pages.
-name: Brand rebuild
+# 3. يحدّث الموقع على gh-pages: اللون والشعار، ومكتبة التحسينات والبرامج، وسجل الإصدارات،
+#    والإصدار وبصمة SHA256، وخريطة الموقع (tools/site/build_site.py).
+name: Build and publish
 
 on:
   push:
     branches: [main]
-    paths: ["branding/**"]
+    paths:
+      - "branding/**"
+      - "config/**"
+      - "functions/**"
+      - "scripts/**"
+      - "xaml/**"
+      - "tools/**"
+      - "Compile.ps1"
   workflow_dispatch:
 
 permissions:
@@ -25,6 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # التاريخ الكامل لسجل الإصدارات في الموقع
 
       - name: Apply branding to source files
         shell: pwsh
@@ -85,11 +96,15 @@ jobs:
           }
           Set-Content -Path ../site/assets/css/brand.css -Value $css -Encoding utf8NoBOM
 
+          # الصفحات المولّدة: التحسينات، البرامج، سجل الإصدارات، البيانات، sitemap
+          python3 tools/site/build_site.py --out ../site --winutil winutil.ps1
+          if ($LASTEXITCODE -ne 0) { throw "build_site.py failed" }
+
           Set-Location ../site
-          git add -A assets
+          git add -A assets tweaks apps changelog sitemap.xml robots.txt
           git diff --cached --quiet
           if ($LASTEXITCODE -ne 0) {
-            git commit -m "تحديث ألوان الموقع وشعاره من branding/brand.json"
+            git commit -m "تحديث الموقع تلقائيًا بعد البناء"
             git push origin gh-pages
           } else {
             Write-Host "Website already up to date"
