@@ -83,6 +83,7 @@ namespace System.Windows.Controls
     . (Join-Path $script:repoRoot "functions\public\Invoke-WPFImpex.ps1")
     . (Join-Path $script:repoRoot "functions\public\Invoke-WPFGetInstalled.ps1")
     . (Join-Path $script:repoRoot "functions\public\Invoke-WPFSelectedCheckboxesUpdate.ps1")
+    . (Join-Path $script:repoRoot "functions\private\Update-WinUtilTweakCount.ps1")
     . (Join-Path $script:repoRoot "functions\public\Invoke-WPFButton.ps1")
     . (Join-Path $script:repoRoot "functions\public\Invoke-WPFToggleAllCategories.ps1")
 

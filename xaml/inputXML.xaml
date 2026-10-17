@@ -1449,6 +1449,7 @@
                         <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Grid.Column="0">
                             <Button Name="WPFTweaksbutton" Content="تطبيق التحسينات" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                             <Button Name="WPFUndoall" Content="التراجع عن التحسينات المحددة" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                            <TextBlock Name="WPFTweaksSelectionCount" Text="لم تحدد أي تحسين بعد" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="{DynamicResource FontSize}" Foreground="{DynamicResource LabelboxForegroundColor}"/>
                         </WrapPanel>
                     </Border>
                 </Grid>

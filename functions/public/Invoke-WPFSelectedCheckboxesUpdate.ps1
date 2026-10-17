@@ -17,6 +17,10 @@
         $selectionChanged = $sync.$listName.Remove($checkboxName)
     }
 
+    if ($listName -eq "selectedTweaks" -and $selectionChanged) {
+        Update-WinUtilTweakCount | Out-Null
+    }
+
     if ($listName -eq "selectedApps" -and $selectionChanged) {
         $sync.WPFselectedAppsButton.Content = "التطبيقات المحددة: $($sync.selectedApps.Count)"
         $sync.selectedAppsstackPanel.Children.Clear()
