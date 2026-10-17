@@ -1428,6 +1428,7 @@
                                     <Button Name="WPFClearTweaksSelection" Content=" مسح " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFGetInstalledTweaks" Content=" تحديد التحسينات المطبقة " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFAppxRemoval" Content=" إزالة تطبيقات AppX " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFOpenWebsite" Content=" موقع الأداة " ToolTip="افتح موقع WinUtil العربي: شرح كل تحسين، ودليل الاستخدام، ومنشئ الإعداد" Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                 </WrapPanel>
                             </StackPanel>
 

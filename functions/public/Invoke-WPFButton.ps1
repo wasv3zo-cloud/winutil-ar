@@ -176,6 +176,7 @@ function Invoke-WPFButtonAction {
         "WPFGetInstalled" {Invoke-WPFGetInstalled -CheckBox "winget"}
         "WPFGetInstalledTweaks" {Invoke-WPFGetInstalled -CheckBox "tweaks"}
         "WPFAppxRemoval" {Invoke-WPFTab "WPFTab6BT"}
+        "WPFOpenWebsite" {Start-Process "https://wasv3zo-cloud.github.io/winutil-ar/"}
         "WPFBackToTweaks" {Invoke-WPFTab "WPFTab2BT"}
         "WPFInstallSelectedAppx" {Invoke-WPFAppxInstall}
         "WPFRemoveSelectedAppx" {Invoke-WPFAppxRemoval}
