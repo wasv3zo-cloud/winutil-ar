@@ -8849,6 +8849,45 @@ function Update-WinUtilSelections {
     }
 }
 
+function Update-WinUtilTweakCount {
+    <#
+        .SYNOPSIS
+            Shows how many tweaks the Apply button will run, next to it in the Tweaks tab
+
+        .DESCRIPTION
+            "تطبيق التحسينات" alone does not say what is about to happen. The line beside it
+            reads "سيُطبَّق 7 تحسينات" so the user sees the size of the change before applying.
+            Toggles are left out: they take effect the moment they are switched.
+
+            Returns the text, and writes it to the WPFTweaksSelectionCount TextBlock when the
+            window exists.
+
+        .PARAMETER Count
+            The number of selected tweaks. Defaults to $sync.selectedTweaks.Count.
+    #>
+    param(
+        [Nullable[int]]$Count = $null
+    )
+
+    if ($null -eq $Count) {
+        $Count = @($sync.selectedTweaks).Where({ $null -ne $_ }).Count
+    }
+
+    # Arabic number agreement: 1 تحسين واحد، 2 تحسينان، 3–10 تحسينات، 11 وأكثر تحسينًا
+    $text = switch ($Count) {
+        0 { "لم تحدد أي تحسين بعد" }
+        1 { "سيُطبَّق تحسين واحد" }
+        2 { "سيُطبَّق تحسينان" }
+        { $_ -ge 3 -and $_ -le 10 } { "سيُطبَّق $Count تحسينات"; break }
+        default { "سيُطبَّق $Count تحسينًا" }
+    }
+
+    if ($null -ne $sync -and $null -ne $sync.WPFTweaksSelectionCount) {
+        $sync.WPFTweaksSelectionCount.Text = $text
+    }
+    $text
+}
+
 function Write-WinUtilConsoleProgress {
     <#
         .SYNOPSIS
@@ -10738,6 +10777,10 @@ function Invoke-WPFPresets {
 
     Reset-WPFCheckBoxes -doToggles $false -checkboxfilterpattern $checkboxfilterpattern
 
+    if ($checkboxfilterpattern -eq "WPFTweak*") {
+        Update-WinUtilTweakCount | Out-Null
+    }
+
     # A preset can tick tweaks inside a folded category; open it so nothing is selected out of sight
     foreach ($header in @($sync.CollapsibleTweakHeaders)) {
         if ($null -ne $header -and $header.Tag.Collapsed) {
@@ -10860,6 +10903,10 @@ function Invoke-WPFSelectedCheckboxesUpdate ($type, $checkboxName) {
         }
     } else {
         $selectionChanged = $sync.$listName.Remove($checkboxName)
+    }
+
+    if ($listName -eq "selectedTweaks" -and $selectionChanged) {
+        Update-WinUtilTweakCount | Out-Null
     }
 
     if ($listName -eq "selectedApps" -and $selectionChanged) {
@@ -18647,6 +18694,7 @@ $inputXML = @'
                         <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Grid.Column="0">
                             <Button Name="WPFTweaksbutton" Content="تطبيق التحسينات" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                             <Button Name="WPFUndoall" Content="التراجع عن التحسينات المحددة" Margin="5" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                            <TextBlock Name="WPFTweaksSelectionCount" Text="لم تحدد أي تحسين بعد" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="{DynamicResource FontSize}" Foreground="{DynamicResource LabelboxForegroundColor}"/>
                         </WrapPanel>
                     </Border>
                 </Grid>
