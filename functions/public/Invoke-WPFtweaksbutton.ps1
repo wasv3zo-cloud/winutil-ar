@@ -39,6 +39,9 @@
     $totalSteps = [Math]::Max(@($Tweaks).Count, 1)
     $completedSteps = 0
 
+    # Measured before anything changes, for the before/after summary at the end
+    $snapshotBefore = Get-WinUtilSystemSnapshot
+
     if ($Tweaks -contains $restorePointTweak) {
       Step-WinUtilJob -Status "جارٍ إنشاء نقطة استعادة" -Percent 0
       Write-WinUtilLog -Component "Tweaks" -Message "Creating restore point before applying selected tweaks."
@@ -67,6 +70,11 @@
       }
       $completedSteps++
       Step-WinUtilJob -Percent ([int](($completedSteps / $totalSteps) * 100))
+    }
+
+    if (@($Tweaks).Count -gt 0) {
+      $report = Format-WinUtilTweakReport -Before $snapshotBefore -After (Get-WinUtilSystemSnapshot) -Applied @($Tweaks).Count
+      Show-WinUtilMessage -Message $report -Title "نتيجة التحسينات" -Button "OK" -Icon "Information" | Out-Null
     }
   }
 }

@@ -7,6 +7,8 @@ BeforeAll {
     . (Join-Path $script:repoRoot "functions\private\Measure-WinUtilStep.ps1")
     . (Join-Path $script:repoRoot "functions\private\Invoke-WinUtilTweaks.ps1")
     . (Join-Path $script:repoRoot "functions\public\Invoke-WPFtweaksbutton.ps1")
+    . (Join-Path $script:repoRoot "functions\private\Get-WinUtilSystemSnapshot.ps1")
+    . (Join-Path $script:repoRoot "functions\private\Format-WinUtilTweakReport.ps1")
     . (Join-Path $script:repoRoot "functions\public\Invoke-WPFundoall.ps1")
 
     function Set-WinUtilService {
@@ -278,6 +280,7 @@ Describe "Invoke-WPFtweaksbutton" {
         Mock Write-WinUtilLog { }
         Mock Step-WinUtilJob { }
         Mock Show-WinUtilMessage { "OK" }
+        Mock Get-WinUtilSystemSnapshot { [pscustomobject]@{ Services = 140; Startup = 8; MemoryMB = 4200 } }
         Mock Write-Host { }
         Mock Start-WinUtilJob {
             $script:capturedTweaksJob = [pscustomobject]@{
@@ -362,6 +365,19 @@ Describe "Invoke-WPFtweaksbutton" {
 
         # the automatic restore point, then the selected tweak
         Should -Invoke -CommandName Invoke-WinUtilTweaks -Times 2 -Exactly
+    }
+
+    It "shows the before/after report when the tweaks finish" {
+        $script:sync.selectedTweaks.Add("WPFTweaksTelemetry")
+
+        Invoke-WPFtweaksbutton
+        $jobParameters = $script:capturedTweaksJob.Parameters
+        & $script:capturedTweaksJob.ScriptBlock @jobParameters
+
+        Should -Invoke -CommandName Get-WinUtilSystemSnapshot -Times 2 -Exactly
+        Should -Invoke -CommandName Show-WinUtilMessage -Times 1 -Exactly -ParameterFilter {
+            $Title -eq "نتيجة التحسينات" -and $Message -like "*الخدمات العاملة*"
+        }
     }
 
     It "adds a restore point when the user did not select one, and only once when they did" {
