@@ -1010,6 +1010,57 @@ function Find-TweaksByNameOrDescription {
     }
 }
 
+function Format-WinUtilTweakReport {
+    <#
+        .SYNOPSIS
+            Builds the Arabic summary shown when the selected tweaks finish
+
+        .DESCRIPTION
+            Compares two Get-WinUtilSystemSnapshot results line by line. Services set to
+            manual and startup entries removed mostly take effect after a restart, so the
+            text says so instead of promising numbers the machine has not reached yet.
+
+        .PARAMETER Before
+            The snapshot taken before the tweaks ran.
+
+        .PARAMETER After
+            The snapshot taken after the tweaks ran.
+
+        .PARAMETER Applied
+            How many tweaks were applied (the automatic restore point included).
+    #>
+    param(
+        $Before,
+        $After,
+        [int]$Applied
+    )
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add("اكتمل تطبيق التحسينات ✓ ($Applied)")
+    $lines.Add("")
+
+    $rows = @(
+        @{ Name = "الخدمات العاملة"; Key = "Services"; Unit = "" }
+        @{ Name = "برامج بدء التشغيل"; Key = "Startup"; Unit = "" }
+        @{ Name = "الذاكرة المستخدمة"; Key = "MemoryMB"; Unit = " ميجابايت" }
+    )
+    foreach ($row in $rows) {
+        $old = if ($null -ne $Before) { $Before.($row.Key) } else { $null }
+        $new = if ($null -ne $After) { $After.($row.Key) } else { $null }
+        if ($null -eq $old -or $null -eq $new) {
+            continue
+        }
+        $delta = $new - $old
+        $change = if ($delta -lt 0) { " (أقل بـ $([math]::Abs($delta)))" } elseif ($delta -gt 0) { " (+$delta)" } else { " (بلا تغيير)" }
+        $lines.Add("• $($row.Name): $old ← $new$($row.Unit)$change")
+    }
+
+    $lines.Add("")
+    $lines.Add("أُنشئت نقطة استعادة قبل التطبيق، فتستطيع الرجوع في أي وقت.")
+    $lines.Add("أعد تشغيل الجهاز: أغلب الفرق في الخدمات وبرامج بدء التشغيل يظهر بعد إعادة التشغيل.")
+    $lines -join "`n"
+}
+
 function Get-WinUtilAppEntryHandlers {
     <#
         .SYNOPSIS
@@ -1689,6 +1740,41 @@ function Get-WinUtilSelectedPackages {
     }
 
     return $packages
+}
+
+function Get-WinUtilSystemSnapshot {
+    <#
+        .SYNOPSIS
+            Measures what the tweaks report compares: running services, startup programs, memory
+
+        .DESCRIPTION
+            Taken once before the selected tweaks run and once after, so the summary shown at
+            the end can say what changed in numbers. A value that cannot be read is $null and
+            is left out of the report rather than shown as zero.
+    #>
+
+    $snapshot = [ordered]@{ Services = $null; Startup = $null; MemoryMB = $null }
+
+    try {
+        $snapshot.Services = @(Get-Service -ErrorAction Stop | Where-Object { $_.Status -eq "Running" }).Count
+    } catch {
+        Write-WinUtilLog -Level "WARN" -Component "Tweaks" -Message "Report: could not count running services: $($_.Exception.Message)"
+    }
+
+    try {
+        $snapshot.Startup = @(Get-CimInstance -ClassName Win32_StartupCommand -ErrorAction Stop).Count
+    } catch {
+        Write-WinUtilLog -Level "WARN" -Component "Tweaks" -Message "Report: could not count startup programs: $($_.Exception.Message)"
+    }
+
+    try {
+        $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+        $snapshot.MemoryMB = [int](($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / 1KB)
+    } catch {
+        Write-WinUtilLog -Level "WARN" -Component "Tweaks" -Message "Report: could not read memory use: $($_.Exception.Message)"
+    }
+
+    [pscustomobject]$snapshot
 }
 
 Function Get-WinUtilToggleStatus {
@@ -11172,6 +11258,14 @@ function Invoke-WPFtweaksbutton {
     return
   }
 
+  # A restore point is always taken before tweaks run, even when the user did not tick it,
+  # so every change WinUtil makes can be rolled back from Windows System Restore
+  $Tweaks = @($Tweaks)
+  if ($Tweaks.Count -gt 0 -and $Tweaks -notcontains "WPFTweaksRestorePoint") {
+    $Tweaks = @("WPFTweaksRestorePoint") + $Tweaks
+    Write-WinUtilLog -Component "Tweaks" -Message "Restore point added automatically before the selected tweaks."
+  }
+
   Write-WinUtilLog -Component "Tweaks" -Message "Tweaks requested: $(@($Tweaks).Count) selected tweak(s), DNS provider: $dnsProvider"
 
   Start-WinUtilJob -Name "Tweaks" -Description "تطبيق التحسينات" -Parameters @{
@@ -11185,6 +11279,9 @@ function Invoke-WPFtweaksbutton {
     $tweaksToRun = @($Tweaks | Where-Object { $_ -ne $restorePointTweak })
     $totalSteps = [Math]::Max(@($Tweaks).Count, 1)
     $completedSteps = 0
+
+    # Measured before anything changes, for the before/after summary at the end
+    $snapshotBefore = Get-WinUtilSystemSnapshot
 
     if ($Tweaks -contains $restorePointTweak) {
       Step-WinUtilJob -Status "جارٍ إنشاء نقطة استعادة" -Percent 0
@@ -11214,6 +11311,11 @@ function Invoke-WPFtweaksbutton {
       }
       $completedSteps++
       Step-WinUtilJob -Percent ([int](($completedSteps / $totalSteps) * 100))
+    }
+
+    if (@($Tweaks).Count -gt 0) {
+      $report = Format-WinUtilTweakReport -Before $snapshotBefore -After (Get-WinUtilSystemSnapshot) -Applied @($Tweaks).Count
+      Show-WinUtilMessage -Message $report -Title "نتيجة التحسينات" -Button "OK" -Icon "Information" | Out-Null
     }
   }
 }
