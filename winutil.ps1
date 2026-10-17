@@ -786,12 +786,17 @@ function Find-TweaksByNameOrDescription {
                             else {
                                 $items = $targetPanel.Children
                             }
-                            # Show all items in the category
+                            # Show all items in the category, except under a header the user folded
+                            $underFoldedHeader = $false
                             foreach ($item in $items) {
                                 if ($null -ne $item) {
                                     # Check if it's a category label (first Label in the container)
                                     if ($item -is [Windows.Controls.Label] -or $item.GetType().Name -eq "Label") {
                                         $item.Visibility = [Windows.Visibility]::Visible
+                                        $underFoldedHeader = $item.Tag -is [hashtable] -and $item.Tag.Collapsed -eq $true
+                                    }
+                                    elseif ($underFoldedHeader) {
+                                        $item.Visibility = [Windows.Visibility]::Collapsed
                                     }
                                     elseif ($item -is [Windows.Controls.DockPanel] -or $item -is [Windows.Controls.StackPanel] -or $item.GetType().Name -eq "DockPanel" -or $item.GetType().Name -eq "StackPanel") {
                                         # Show all checkbox containers
@@ -6313,6 +6318,84 @@ function Set-WinUtilAppCategoryFilter {
     Find-AppsByNameOrDescription -SearchString $sync.SearchBar.Text -Categories $selected.ToArray()
 }
 
+function Set-WinUtilCategoryCollapsed {
+    <#
+        .SYNOPSIS
+            Shows or hides the entries under a collapsible Tweaks category header
+
+        .DESCRIPTION
+            The entries of a category are the siblings that follow its header Label in the
+            same panel, up to the next Label. Walking the panel rather than keeping a list
+            means entries added later (lazy tab building) are covered too.
+
+            The header keeps its state in Label.Tag (Collapsed, Arrow, Count) so the empty
+            search reset in Find-TweaksByNameOrDescription can leave a collapsed category
+            collapsed.
+
+        .PARAMETER Label
+            The category header Label created by Invoke-WPFUIElements.
+
+        .PARAMETER Collapsed
+            $true hides the entries, $false shows them.
+
+        .PARAMETER ExpandIfSelected
+            Open the category anyway when one of its entries is ticked, so a preset never
+            selects tweaks the user cannot see.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        $Label,
+
+        [Parameter(Mandatory)]
+        [bool]$Collapsed,
+
+        [switch]$ExpandIfSelected
+    )
+
+    $panel = $Label.Parent
+    if ($null -eq $panel -or $null -eq $Label.Tag) {
+        return
+    }
+
+    # The entries under this header: siblings up to the next header
+    $entries = [System.Collections.Generic.List[object]]::new()
+    $afterHeader = $false
+    foreach ($child in @($panel.Children)) {
+        if ([object]::ReferenceEquals($child, $Label)) {
+            $afterHeader = $true
+            continue
+        }
+        if (-not $afterHeader) {
+            continue
+        }
+        if ($child.GetType().Name -eq "Label") {
+            break
+        }
+        $entries.Add($child)
+    }
+
+    if ($Collapsed -and $ExpandIfSelected) {
+        foreach ($entry in $entries) {
+            $box = if ($entry.PSObject.Properties['Children']) { @($entry.Children) | Where-Object { $_.GetType().Name -eq "CheckBox" } | Select-Object -First 1 }
+            if ($null -ne $box -and $box.IsChecked -eq $true) {
+                $Collapsed = $false
+                break
+            }
+        }
+    }
+
+    $Label.Tag.Collapsed = $Collapsed
+    $visibility = if ($Collapsed) { [Windows.Visibility]::Collapsed } else { [Windows.Visibility]::Visible }
+    foreach ($entry in $entries) {
+        $entry.Visibility = $visibility
+    }
+    $count = $entries.Count
+
+    if ($null -ne $Label.Tag.Arrow) {
+        $Label.Tag.Arrow.Text = if ($Collapsed) { "▸ اضغط للعرض ($count)" } else { "▾ إخفاء" }
+    }
+}
+
 function Set-WinUtilDNS {
     <#
 
@@ -10654,6 +10737,13 @@ function Invoke-WPFPresets {
     }
 
     Reset-WPFCheckBoxes -doToggles $false -checkboxfilterpattern $checkboxfilterpattern
+
+    # A preset can tick tweaks inside a folded category; open it so nothing is selected out of sight
+    foreach ($header in @($sync.CollapsibleTweakHeaders)) {
+        if ($null -ne $header -and $header.Tag.Collapsed) {
+            Set-WinUtilCategoryCollapsed -Label $header -Collapsed $true -ExpandIfSelected
+        }
+    }
 }
 
 function Invoke-WPFRunspace {
@@ -11186,6 +11276,9 @@ function Invoke-WPFUIElements {
     # Initialize panel count
     $panelcount = 0
 
+    # Category headers that start collapsed (the advanced tweaks); folded once the panel is built
+    $collapsibleHeaders = [System.Collections.Generic.List[object]]::new()
+
     # Iterate through 'organizedData' by panel, category, and application
     $yieldClock = [System.Diagnostics.Stopwatch]::StartNew()
     foreach ($panelKey in ($organizedData.Keys | Sort-Object)) {
@@ -11272,6 +11365,31 @@ function Invoke-WPFUIElements {
                 $headerPanel.Children.Add($riskBadge) | Out-Null
                 $label.Content = $headerPanel
                 $label.ToolTip = $categoryRisk.Text
+
+                # The advanced tweaks start folded so a beginner does not tick them by accident
+                if ($category -eq "z__Advanced Tweaks - CAUTION") {
+                    $foldArrow = New-Object Windows.Controls.TextBlock
+                    $foldArrow.FontSize = 11
+                    $foldArrow.Margin = New-Object Windows.Thickness(10, 0, 0, 0)
+                    $foldArrow.VerticalAlignment = "Center"
+                    $foldArrow.Opacity = 0.75
+                    $headerPanel.Children.Add($foldArrow) | Out-Null
+
+                    $label.Tag = @{ Collapsed = $true; Arrow = $foldArrow }
+                    $label.Cursor = [Windows.Input.Cursors]::Hand
+                    $label.ToolTip = "$($categoryRisk.Text) — اضغط للعرض أو الإخفاء"
+                    $label.Add_MouseLeftButtonUp({
+                        param($header)
+                        Set-WinUtilCategoryCollapsed -Label $header -Collapsed (-not $header.Tag.Collapsed)
+                    })
+                    $label.Add_KeyUp({
+                        param($header, $keyArgs)
+                        if ($keyArgs.Key -eq [Windows.Input.Key]::Enter -or $keyArgs.Key -eq [Windows.Input.Key]::Space) {
+                            Set-WinUtilCategoryCollapsed -Label $header -Collapsed (-not $header.Tag.Collapsed)
+                        }
+                    })
+                    $collapsibleHeaders.Add($label)
+                }
             }
             $label.Focusable = $true
             $label.IsTabStop = $true
@@ -11689,6 +11807,12 @@ function Invoke-WPFUIElements {
                 }
             }
         }
+    }
+
+    foreach ($header in $collapsibleHeaders) {
+        Set-WinUtilCategoryCollapsed -Label $header -Collapsed $header.Tag.Collapsed -ExpandIfSelected
+        # Presets look these up to open a folded category they select into
+        $sync.CollapsibleTweakHeaders = @(@($sync.CollapsibleTweakHeaders) + $header | Where-Object { $null -ne $_ })
     }
 
     # A search event can run inside one of the yielded dispatcher frames above. Controls added
