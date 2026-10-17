@@ -103,6 +103,9 @@
     # Initialize panel count
     $panelcount = 0
 
+    # Category headers that start collapsed (the advanced tweaks); folded once the panel is built
+    $collapsibleHeaders = [System.Collections.Generic.List[object]]::new()
+
     # Iterate through 'organizedData' by panel, category, and application
     $yieldClock = [System.Diagnostics.Stopwatch]::StartNew()
     foreach ($panelKey in ($organizedData.Keys | Sort-Object)) {
@@ -189,6 +192,31 @@
                 $headerPanel.Children.Add($riskBadge) | Out-Null
                 $label.Content = $headerPanel
                 $label.ToolTip = $categoryRisk.Text
+
+                # The advanced tweaks start folded so a beginner does not tick them by accident
+                if ($category -eq "z__Advanced Tweaks - CAUTION") {
+                    $foldArrow = New-Object Windows.Controls.TextBlock
+                    $foldArrow.FontSize = 11
+                    $foldArrow.Margin = New-Object Windows.Thickness(10, 0, 0, 0)
+                    $foldArrow.VerticalAlignment = "Center"
+                    $foldArrow.Opacity = 0.75
+                    $headerPanel.Children.Add($foldArrow) | Out-Null
+
+                    $label.Tag = @{ Collapsed = $true; Arrow = $foldArrow }
+                    $label.Cursor = [Windows.Input.Cursors]::Hand
+                    $label.ToolTip = "$($categoryRisk.Text) — اضغط للعرض أو الإخفاء"
+                    $label.Add_MouseLeftButtonUp({
+                        param($header)
+                        Set-WinUtilCategoryCollapsed -Label $header -Collapsed (-not $header.Tag.Collapsed)
+                    })
+                    $label.Add_KeyUp({
+                        param($header, $keyArgs)
+                        if ($keyArgs.Key -eq [Windows.Input.Key]::Enter -or $keyArgs.Key -eq [Windows.Input.Key]::Space) {
+                            Set-WinUtilCategoryCollapsed -Label $header -Collapsed (-not $header.Tag.Collapsed)
+                        }
+                    })
+                    $collapsibleHeaders.Add($label)
+                }
             }
             $label.Focusable = $true
             $label.IsTabStop = $true
@@ -606,6 +634,12 @@
                 }
             }
         }
+    }
+
+    foreach ($header in $collapsibleHeaders) {
+        Set-WinUtilCategoryCollapsed -Label $header -Collapsed $header.Tag.Collapsed -ExpandIfSelected
+        # Presets look these up to open a folded category they select into
+        $sync.CollapsibleTweakHeaders = @(@($sync.CollapsibleTweakHeaders) + $header | Where-Object { $null -ne $_ })
     }
 
     # A search event can run inside one of the yielded dispatcher frames above. Controls added

@@ -48,4 +48,11 @@ function Invoke-WPFPresets {
     }
 
     Reset-WPFCheckBoxes -doToggles $false -checkboxfilterpattern $checkboxfilterpattern
+
+    # A preset can tick tweaks inside a folded category; open it so nothing is selected out of sight
+    foreach ($header in @($sync.CollapsibleTweakHeaders)) {
+        if ($null -ne $header -and $header.Tag.Collapsed) {
+            Set-WinUtilCategoryCollapsed -Label $header -Collapsed $true -ExpandIfSelected
+        }
+    }
 }

@@ -101,12 +101,17 @@ function Find-TweaksByNameOrDescription {
                             else {
                                 $items = $targetPanel.Children
                             }
-                            # Show all items in the category
+                            # Show all items in the category, except under a header the user folded
+                            $underFoldedHeader = $false
                             foreach ($item in $items) {
                                 if ($null -ne $item) {
                                     # Check if it's a category label (first Label in the container)
                                     if ($item -is [Windows.Controls.Label] -or $item.GetType().Name -eq "Label") {
                                         $item.Visibility = [Windows.Visibility]::Visible
+                                        $underFoldedHeader = $item.Tag -is [hashtable] -and $item.Tag.Collapsed -eq $true
+                                    }
+                                    elseif ($underFoldedHeader) {
+                                        $item.Visibility = [Windows.Visibility]::Collapsed
                                     }
                                     elseif ($item -is [Windows.Controls.DockPanel] -or $item -is [Windows.Controls.StackPanel] -or $item.GetType().Name -eq "DockPanel" -or $item.GetType().Name -eq "StackPanel") {
                                         # Show all checkbox containers

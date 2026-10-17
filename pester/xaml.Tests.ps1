@@ -476,6 +476,7 @@ Describe "XAML and sync wiring" {
             "AppCategoryChips",
             "SelectedAppCategories",
             "AppCategoryAutoExpanded",
+            "CollapsibleTweakHeaders",
             "RenderedAssetCache",
             "ToggleStatusCache",
             "InstallAppRenderQueue",
