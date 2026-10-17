@@ -1136,6 +1136,36 @@ function Get-WinUtilCategoryDisplayName {
     return $cleanName
 }
 
+function Get-WinUtilCategoryRisk {
+    <#
+        .SYNOPSIS
+            The risk badge shown next to a Tweaks category header: its Arabic text and colour
+
+        .DESCRIPTION
+            Tells a user at a glance which tweaks are safe to apply and which need care,
+            before they read every item. Categories outside the Tweaks tab have no badge
+            and return $null.
+
+            The colours are mid tones so the badge stays readable on both the dark and the
+            light theme; they carry meaning (safe, preference, caution, warning) and are
+            deliberately not taken from the theme.
+
+        .PARAMETER Category
+            The category key as written in config/tweaks.json, e.g. "Essential Tweaks".
+    #>
+    param(
+        [string]$Category
+    )
+
+    switch ($Category) {
+        "Essential Tweaks" { @{ Text = "آمن"; Color = "#16A34A" } }
+        "Customize Preferences" { @{ Text = "تفضيل شخصي"; Color = "#2563EB" } }
+        "z__Advanced Tweaks - CAUTION" { @{ Text = "متقدم — انتبه"; Color = "#DC2626" } }
+        "Performance Plans - NOT FOR LAPTOPS" { @{ Text = "ليس للحواسيب المحمولة"; Color = "#D97706" } }
+        default { $null }
+    }
+}
+
 function Get-WinUtilDNSBenchmark {
     <#
 
@@ -11208,6 +11238,38 @@ function Invoke-WPFUIElements {
             $label = New-Object Windows.Controls.Label
             $categoryCleanName = Get-WinUtilCategoryDisplayName -Category $category
             $label.Content = $categoryCleanName
+
+            # Tweaks categories get a risk badge beside the header (آمن، متقدم — انتبه…)
+            $categoryRisk = Get-WinUtilCategoryRisk -Category $category
+            if ($null -ne $categoryRisk) {
+                $riskColor = [Windows.Media.ColorConverter]::ConvertFromString($categoryRisk.Color)
+
+                $riskText = New-Object Windows.Controls.TextBlock
+                $riskText.Text = $categoryRisk.Text
+                $riskText.FontSize = 11
+                $riskText.FontWeight = [Windows.FontWeights]::SemiBold
+                $riskText.Foreground = New-Object Windows.Media.SolidColorBrush($riskColor)
+
+                $riskBadge = New-Object Windows.Controls.Border
+                $riskBadge.CornerRadius = New-Object Windows.CornerRadius(8)
+                $riskBadge.Padding = New-Object Windows.Thickness(8, 1, 8, 2)
+                $riskBadge.Margin = New-Object Windows.Thickness(10, 0, 0, 0)
+                $riskBadge.VerticalAlignment = "Center"
+                $riskBadge.Background = New-Object Windows.Media.SolidColorBrush(
+                    [Windows.Media.Color]::FromArgb(38, $riskColor.R, $riskColor.G, $riskColor.B))
+                $riskBadge.Child = $riskText
+
+                $headerName = New-Object Windows.Controls.TextBlock
+                $headerName.Text = $categoryCleanName
+                $headerName.VerticalAlignment = "Center"
+
+                $headerPanel = New-Object Windows.Controls.StackPanel
+                $headerPanel.Orientation = "Horizontal"
+                $headerPanel.Children.Add($headerName) | Out-Null
+                $headerPanel.Children.Add($riskBadge) | Out-Null
+                $label.Content = $headerPanel
+                $label.ToolTip = $categoryRisk.Text
+            }
             $label.Focusable = $true
             $label.IsTabStop = $true
             [System.Windows.Automation.AutomationProperties]::SetName($label, $categoryCleanName)
