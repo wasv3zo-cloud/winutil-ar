@@ -8,7 +8,7 @@
 
 param (
     [string]$Config,
-    [ValidateSet("Standard", "Minimal", "Advanced", "")]
+    [ValidateSet("Standard", "Minimal", "Advanced", "Gaming", "Privacy", "LowEnd", "")]
     [string]$Preset,
     [switch]$Offline
 )
@@ -9778,6 +9778,9 @@ function Invoke-WPFButtonAction {
         "WPFStandard" {Invoke-WPFPresets "Standard" -checkboxfilterpattern "WPFTweak*"}
         "WPFMinimal" {Invoke-WPFPresets "Minimal" -checkboxfilterpattern "WPFTweak*"}
         "WPFAdvanced" {Invoke-WPFPresets "Advanced" -checkboxfilterpattern "WPFTweak*"}
+        "WPFGaming" {Invoke-WPFPresets "Gaming" -checkboxfilterpattern "WPFTweak*"}
+        "WPFPrivacy" {Invoke-WPFPresets "Privacy" -checkboxfilterpattern "WPFTweak*"}
+        "WPFLowEnd" {Invoke-WPFPresets "LowEnd" -checkboxfilterpattern "WPFTweak*"}
         "WPFClearTweaksSelection" {Invoke-WPFPresets -imported $true -checkboxfilterpattern "WPFTweak*"}
         "WPFClearInstallSelection" {Invoke-WPFPresets -imported $true -checkboxfilterpattern "WPFInstall*"}
         "WPFtweaksbutton" {Invoke-WPFtweaksbutton}
@@ -15212,6 +15215,49 @@ $sync.configs.preset = @'
     "WPFAppxMicrosoft_BingNews",
     "WPFAppxMicrosoft_Copilot",
     "WPFAppxMicrosoft_BingSearch"
+  ],
+  "Gaming": [
+    "WPFTweaksRestorePoint",
+    "WPFTweaksTelemetry",
+    "WPFTweaksActivity",
+    "WPFTweaksConsumerFeatures",
+    "WPFTweaksLocation",
+    "WPFTweaksDeliveryOptimization",
+    "WPFTweaksDeleteTempFiles",
+    "WPFTweaksEndTaskOnTaskbar",
+    "WPFTweaksWidget",
+    "WPFTweaksDisableStoreSearch",
+    "WPFTweaksDisableBGapps",
+    "WPFTweaksRazerBlock",
+    "WPFTweaksLogiBlock"
+  ],
+  "Privacy": [
+    "WPFTweaksRestorePoint",
+    "WPFTweaksTelemetry",
+    "WPFTweaksActivity",
+    "WPFTweaksLocation",
+    "WPFTweaksConsumerFeatures",
+    "WPFTweaksWPBT",
+    "WPFTweaksPreventDeviceMetadataFromNetwork",
+    "WPFTweaksDisableStoreSearch",
+    "WPFTweaksDeliveryOptimization",
+    "WPFTweaksDisableBGapps",
+    "WPFTweaksWindowsAI"
+  ],
+  "LowEnd": [
+    "WPFTweaksRestorePoint",
+    "WPFTweaksTelemetry",
+    "WPFTweaksActivity",
+    "WPFTweaksConsumerFeatures",
+    "WPFTweaksDeliveryOptimization",
+    "WPFTweaksServices",
+    "WPFTweaksDeleteTempFiles",
+    "WPFTweaksDiskCleanup",
+    "WPFTweaksWidget",
+    "WPFTweaksDisableBGapps",
+    "WPFTweaksDisplay",
+    "WPFTweaksDisableExplorerAutoDiscovery",
+    "WPFTweaksEndTaskOnTaskbar"
   ]
 }
 '@ | ConvertFrom-Json
@@ -18450,6 +18496,9 @@ $inputXML = @'
                                     <Button Name="WPFstandard" Content=" قياسي " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFminimal" Content=" أساسي " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFAdvanced" Content=" متقدم " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFGaming" Content=" للألعاب " ToolTip="تحسينات تخفّف الحمل أثناء اللعب: إيقاف التتبع وتطبيقات الخلفية وبرامج Razer وLogitech التلقائية" Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFPrivacy" Content=" للخصوصية " ToolTip="أقصى خصوصية: إيقاف القياس عن بُعد والموقع والنشاط والذكاء الاصطناعي في ويندوز" Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
+                                    <Button Name="WPFLowEnd" Content=" للأجهزة الضعيفة " ToolTip="تحسينات للأجهزة القديمة: الخدمات اليدوية، أفضل أداء مرئي، تنظيف القرص وإيقاف تطبيقات الخلفية" Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFClearTweaksSelection" Content=" مسح " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFGetInstalledTweaks" Content=" تحديد التحسينات المطبقة " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
                                     <Button Name="WPFAppxRemoval" Content=" إزالة تطبيقات AppX " Margin="2" Width="{DynamicResource ButtonWidth}" Height="{DynamicResource ButtonHeight}"/>
