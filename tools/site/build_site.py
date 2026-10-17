@@ -81,8 +81,8 @@ def page(title, desc, depth, path, body, scripts=""):
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Noto+Kufi+Arabic:wght@600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{root}assets/css/style.css">
-  <link rel="stylesheet" href="{root}assets/css/brand.css">
+  <link rel="stylesheet" href="{root}assets/css/style.css?v=3">
+  <link rel="stylesheet" href="{root}assets/css/brand.css?v=3">
   <script>try{{if(localStorage.getItem('theme')==='light')document.documentElement.dataset.theme='light'}}catch(e){{}}</script>
 </head>
 <body>
