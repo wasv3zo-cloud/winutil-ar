@@ -17,6 +17,7 @@
   const S = window.SITE || {};
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const ROOT = document.documentElement.dataset.root || '';
   // أمر التشغيل يأتي من config.js وحده (مصدر واحد)؛ نأخذ منه جزء التنزيل لنمرّر ملف الإعداد
   const LOADER = (S.command || '').replace(/^iex \(/, '').replace(/\)$/, '');
@@ -45,21 +46,21 @@
     const list = q ? apps.filter((a) => (a.name + ' ' + a.key).toLowerCase().includes(q)) : apps;
     const groups = group(list, 'cat');
     $('#appList').innerHTML = Object.entries(groups).map(([cat, items]) => `
-      <div class="pick-group"><h3>${cat} <span class="muted small">(${items.length})</span></h3>
+      <div class="pick-group"><h3>${esc(cat)} <span class="muted small">(${items.length})</span></h3>
         <div class="pick-grid">${items.map((a) => `
-          <label class="pick${picked.has(a.id) ? ' on' : ''}"><input type="checkbox" value="${a.id}"${picked.has(a.id) ? ' checked' : ''}>
-            <span>${a.name}</span>${a.foss ? '<i class="foss" title="مفتوح المصدر"></i>' : ''}</label>`).join('')}
+          <label class="pick${picked.has(a.id) ? ' on' : ''}"><input type="checkbox" value="${esc(a.id)}"${picked.has(a.id) ? ' checked' : ''}>
+            <span>${esc(a.name)}</span>${a.foss ? '<i class="foss" title="مفتوح المصدر"></i>' : ''}</label>`).join('')}
         </div></div>`).join('') || '<p class="muted">لا توجد نتائج.</p>';
   }
 
   function renderTweaks() {
     const groups = group(tweaks, 'cat');
     $('#tweakList').innerHTML = Object.entries(groups).map(([cat, items]) => `
-      <div class="pick-group"><h3>${cat}</h3>
+      <div class="pick-group"><h3>${esc(cat)}</h3>
         <div class="pick-grid pick-grid--wide">${items.map((t) => `
-          <label class="pick${picked.has(t.id) ? ' on' : ''}"><input type="checkbox" value="${t.id}"${picked.has(t.id) ? ' checked' : ''}>
-            <span>${t.title}</span><span class="badge-risk ${t.risk}"></span>
-            <a href="${ROOT}tweaks/${t.slug}/" target="_blank" class="pick__info" title="ماذا يفعل؟">؟</a></label>`).join('')}
+          <label class="pick${picked.has(t.id) ? ' on' : ''}"><input type="checkbox" value="${esc(t.id)}"${picked.has(t.id) ? ' checked' : ''}>
+            <span>${esc(t.title)}</span><span class="badge-risk ${esc(t.risk)}"></span>
+            <a href="${ROOT}tweaks/${esc(t.slug)}/" target="_blank" class="pick__info" title="ماذا يفعل؟">؟</a></label>`).join('')}
         </div></div>`).join('');
   }
 
@@ -78,7 +79,7 @@
     const name = (k) => (apps.find((x) => x.id === k) || tweaks.find((x) => x.id === k) || {}).name
       || (tweaks.find((x) => x.id === k) || {}).title || k;
     $('#sumChips').innerHTML = [...picked].slice(0, 30).map((k) =>
-      `<button class="sum-chip" data-k="${k}" title="إزالة">${name(k)} ×</button>`).join('') + (picked.size > 30 ? `<span class="muted small">+${picked.size - 30}</span>` : '');
+      `<button class="sum-chip" data-k="${esc(k)}" title="إزالة">${esc(name(k))} ×</button>`).join('') + (picked.size > 30 ? `<span class="muted small">+${picked.size - 30}</span>` : '');
     ['#dlBtn', '#cmdBtn', '#shareBtn'].forEach((id) => { $(id).disabled = !picked.size; });
     writeUrl();
   }

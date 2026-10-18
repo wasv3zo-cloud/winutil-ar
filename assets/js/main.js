@@ -23,6 +23,7 @@
   const S = window.SITE || {};
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 
   /* ---------- 1. مكتبة الأيقونات ----------
@@ -337,7 +338,7 @@
       results = (q ? index.filter((r) => norm(r.t + ' ' + r.d).includes(q)) : index.filter((r) => r.k === 'صفحة')).slice(0, 12);
       active = 0;
       list.innerHTML = results.length ? results.map((r, i) =>
-        `<li><a href="${ROOT}${r.u}" class="${i === 0 ? 'on' : ''}"><span class="tag">${r.k}</span><b>${r.t}</b><span class="muted small">${r.d || ''}</span></a></li>`).join('')
+        `<li><a href="${ROOT}${esc(r.u)}" class="${i === 0 ? 'on' : ''}"><span class="tag">${esc(r.k)}</span><b>${esc(r.t)}</b><span class="muted small">${esc(r.d || '')}</span></a></li>`).join('')
         : '<li class="muted" style="padding:16px">لا توجد نتائج</li>';
     };
     input.addEventListener('input', render);
