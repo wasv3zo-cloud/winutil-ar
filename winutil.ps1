@@ -3,7 +3,7 @@
     Author         : Chris Titus @christitustech
     Runspace Author: @DeveloperDurp
     GitHub         : https://github.com/ChrisTitusTech
-    Version        : 26.10.17
+    Version        : 26.10.19
 #>
 
 param (
@@ -226,7 +226,7 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 
 # Variable to sync between runspaces
 $sync = [Hashtable]::Synchronized(@{})
-$sync.version = "26.10.17"
+$sync.version = "26.10.19"
 $sync.IsLocalCompile = "false" -eq "true"
 $sync.configs = @{}
 $sync.Buttons = [System.Collections.Generic.List[PSObject]]::new()
@@ -20143,25 +20143,25 @@ $scripts = @(
 
 '@
 Write-Host @"
-    CCCCCCCCCCCCCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
- CCC::::::::::::CT:::::::::::::::::::::TT:::::::::::::::::::::T
-CC:::::::::::::::CT:::::::::::::::::::::TT:::::::::::::::::::::T
-C:::::CCCCCCCC::::CT:::::TT:::::::TT:::::TT:::::TT:::::::TT:::::T
-C:::::C       CCCCCCTTTTTT  T:::::T  TTTTTTTTTTTT  T:::::T  TTTTTT
-C:::::C                     T:::::T                T:::::T
-C:::::C                     T:::::T                T:::::T
-C:::::C                     T:::::T                T:::::T
-C:::::C                     T:::::T                T:::::T
-C:::::C                     T:::::T                T:::::T
-C:::::C                     T:::::T                T:::::T
-C:::::C       CCCCCC        T:::::T                T:::::T
-C:::::CCCCCCCC::::C      TT:::::::TT            TT:::::::TT
-CC:::::::::::::::C       T:::::::::T            T:::::::::T
-CCC::::::::::::C         T:::::::::T            T:::::::::T
-  CCCCCCCCCCCCC          TTTTTTTTTTT            TTTTTTTTTTT
+     TTTTTTTTTTTTTTT   RRRRRRRRRRRR
+     TTTTTTTTTTTTTTT   RRRRRRRRRRRRR
+     TTTTTTTTTTTTTTT   RRR      RRRR
+          TTTTT        RRR       RRR
+          TTTTT        RRR       RRR
+          TTTTT        RRR      RRRR
+          TTTTT        RRRRRRRRRRRRR
+          TTTTT        RRRRRRRRRRRR
+          TTTTT        RRRRRRRR
+          TTTTT        RRR   RRR
+          TTTTT        RRR    RRR
+          TTTTT        RRR     RRR
+          TTTTT        RRR      RRR
+          TTTTT        RRR       RRR
+          TTTTT        RRR        RRR
+          TTTTT        RRR         RRR
 
-====Chris Titus Tech=====
-=====Windows Toolbox=====
+====WinUtil العربي=====
+=====صندوق أدوات ويندوز===== 
 "@
 
 # Load the configuration files
