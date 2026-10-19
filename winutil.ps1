@@ -20160,8 +20160,7 @@ Write-Host @"
           TTTTT        RRR        RRR
           TTTTT        RRR         RRR
 
-====WinUtil العربي=====
-=====صندوق أدوات ويندوز===== 
+====WinUtil-AR=====
 "@
 
 # Load the configuration files
