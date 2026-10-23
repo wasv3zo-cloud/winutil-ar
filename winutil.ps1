@@ -3,7 +3,7 @@
     Author         : Chris Titus @christitustech
     Runspace Author: @DeveloperDurp
     GitHub         : https://github.com/ChrisTitusTech
-    Version        : 26.10.19
+    Version        : 26.10.23
 #>
 
 param (
@@ -226,7 +226,7 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 
 # Variable to sync between runspaces
 $sync = [Hashtable]::Synchronized(@{})
-$sync.version = "26.10.19"
+$sync.version = "26.10.23"
 $sync.IsLocalCompile = "false" -eq "true"
 $sync.configs = @{}
 $sync.Buttons = [System.Collections.Generic.List[PSObject]]::new()
@@ -6648,6 +6648,28 @@ function Set-WinUtilRegistry {
 
     try {
         if(!(Test-Path 'HKU:\')) {New-PSDrive -PSProvider Registry -Name HKU -Root HKEY_USERS | Out-Null}
+
+        if ($Value -eq "<RemoveEntry>") {
+            # A value that is not there is already in the requested state. Reporting it as an
+            # error made undoing a tweak that was never applied fail, and the key would otherwise
+            # be created below only to have nothing removed from it. Only a missing key or value
+            # counts as absent; an access or provider failure still reaches the handlers below.
+            $valueExists = $true
+            try {
+                Get-ItemProperty -Path $Path -Name $Name -ErrorAction Stop | Out-Null
+            } catch [System.Management.Automation.PSArgumentException] {
+                # The registry provider uses PSArgumentException when a named value is absent
+                $valueExists = $false
+            } catch [System.Management.Automation.ItemNotFoundException] {
+                $valueExists = $false
+            }
+
+            if (-not $valueExists) {
+                Write-Host "$Path\$Name is already absent"
+                Write-WinUtilLog -Component "Registry" -Message "Registry value $Path\$Name is already absent; nothing to remove"
+                return
+            }
+        }
 
         If (!(Test-Path $Path)) {
             Write-Host "$Path was not found. Creating..."
@@ -16099,6 +16121,13 @@ $sync.configs.tweaks = @'
     "Description": "يعطّل القياس عن بُعد الخاص بمايكروسوفت.",
     "category": "Essential Tweaks",
     "panel": "1",
+    "service": [
+      {
+        "Name": "WerSvc",
+        "StartupType": "Disabled",
+        "OriginalType": "Manual"
+      }
+    ],
     "registry": [
       {
         "Path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo",
@@ -16183,13 +16212,20 @@ $sync.configs.tweaks = @'
         "Value": "0",
         "Type": "DWord",
         "OriginalValue": "<RemoveEntry>"
+      },
+      {
+        "Path": "HKCU:\\Software\\Microsoft\\Siuf\\Rules",
+        "Name": "PeriodInNanoSeconds",
+        "Value": "<RemoveEntry>",
+        "Type": "DWord",
+        "OriginalValue": "<RemoveEntry>"
       }
     ],
     "InvokeScript": [
-      "\r\n      # Disable Defender Auto Sample Submission\r\n      Set-MpPreference -SubmitSamplesConsent 2\r\n\r\n      # Disable (Connected User Experiences and Telemetry) Service\r\n      Set-Service -Name diagtrack -StartupType Disabled\r\n\r\n      # Disable (Windows Error Reporting Manager) Service\r\n      Set-Service -Name wermgr -StartupType Disabled\r\n\r\n      # Disable PowerShell 7 telemetry\r\n      [Environment]::SetEnvironmentVariable('POWERSHELL_TELEMETRY_OPTOUT', '1', 'Machine')\r\n\r\n      Remove-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\Siuf\\Rules\" -Name PeriodInNanoSeconds\r\n      "
+      "\r\n      # Disable Defender Auto Sample Submission\r\n      Set-MpPreference -SubmitSamplesConsent 2\r\n\r\n      # Disable (Connected User Experiences and Telemetry) Service\r\n      Set-Service -Name diagtrack -StartupType Disabled\r\n\r\n      # Disable PowerShell 7 telemetry\r\n      [Environment]::SetEnvironmentVariable('POWERSHELL_TELEMETRY_OPTOUT', '1', 'Machine')\r\n      "
     ],
     "UndoScript": [
-      "\r\n      # Enable Defender Auto Sample Submission\r\n      Set-MpPreference -SubmitSamplesConsent 1\r\n\r\n      # Enable (Connected User Experiences and Telemetry) Service\r\n      Set-Service -Name diagtrack -StartupType Automatic\r\n\r\n      # Enable (Windows Error Reporting Manager) Service\r\n      Set-Service -Name wermgr -StartupType Automatic\r\n\r\n      # Enable PowerShell 7 telemetry\r\n      [Environment]::SetEnvironmentVariable('POWERSHELL_TELEMETRY_OPTOUT', '', 'Machine')\r\n      "
+      "\r\n      # Enable Defender Auto Sample Submission\r\n      Set-MpPreference -SubmitSamplesConsent 1\r\n\r\n      # Enable (Connected User Experiences and Telemetry) Service\r\n      Set-Service -Name diagtrack -StartupType Automatic\r\n\r\n      # Enable PowerShell 7 telemetry\r\n      [Environment]::SetEnvironmentVariable('POWERSHELL_TELEMETRY_OPTOUT', '', 'Machine')\r\n      "
     ],
     "link": "https://winutil.christitus.com/code-reference/tweaks/essential-tweaks/telemetry"
   },
