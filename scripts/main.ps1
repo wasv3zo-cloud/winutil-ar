@@ -57,6 +57,17 @@ function Remove-WinUtilTempScript {
 }
 
 #===========================================================================
+# Login: only the owner may run this copy (config/auth.json)
+#===========================================================================
+
+if (-not (Invoke-WinUtilLogin)) {
+    Write-Host "تم إيقاف التشغيل: لم يتم تسجيل الدخول." -ForegroundColor Red
+    $global:LASTEXITCODE = 1
+    if ($script:WinUtilIsFileProcess) { exit 1 }
+    return
+}
+
+#===========================================================================
 # Headless runs never build a window
 #===========================================================================
 
