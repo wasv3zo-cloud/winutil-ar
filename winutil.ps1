@@ -15236,9 +15236,9 @@ $sync.configs.appx = @'
 $sync.configs.auth = @'
 {
   "login": {
-    "username": "",
-    "salt": "",
-    "hash": "",
+    "username": "ART12",
+    "salt": "RsVL7o5vJf+0pb6csVVKig==",
+    "hash": "fUaIl67SV5bnf1Pjzb4ZuoY2glbiY5/GAy4AJyFdQTo=",
     "iterations": 200000
   }
 }
