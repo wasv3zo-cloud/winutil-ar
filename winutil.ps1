@@ -5319,57 +5319,6 @@ function Invoke-WinUtilISOWriteUSB {
     }
 }
 
-function Invoke-WinUtilLogin {
-    <#
-        .SYNOPSIS
-            Asks for the owner's username and password before WinUtil does anything
-
-        .DESCRIPTION
-            Runs before both the interface and the -Config/-Preset runs. When config/auth.json
-            has no hash yet, no login is configured and WinUtil starts as before.
-
-            The user gets $MaxAttempts tries. Cancelling or running out of tries returns $false
-            and the caller stops.
-
-        .PARAMETER Login
-            The login object from config/auth.json.
-
-        .PARAMETER MaxAttempts
-            How many wrong entries are allowed before WinUtil stops.
-
-        .OUTPUTS
-            $true when WinUtil may continue, otherwise $false.
-    #>
-    param(
-        $Login = $sync.configs.auth.login,
-        [int]$MaxAttempts = 3
-    )
-
-    if ($null -eq $Login -or [string]::IsNullOrWhiteSpace([string]$Login.hash)) {
-        Write-WinUtilLog -Level "WARN" -Component "Login" -Message "No login is configured in config/auth.json; starting without one."
-        return $true
-    }
-
-    $message = ""
-    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-        $entry = Show-WinUtilLoginDialog -Message $message
-        if ($null -eq $entry) {
-            Write-WinUtilLog -Component "Login" -Message "Login cancelled."
-            return $false
-        }
-
-        if (Test-WinUtilCredential -Username $entry.Username -Password $entry.Password -Login $Login) {
-            Write-WinUtilLog -Component "Login" -Message "Login succeeded."
-            return $true
-        }
-
-        Write-WinUtilLog -Level "WARN" -Component "Login" -Message "Login failed ($attempt/$MaxAttempts)."
-        $message = "اسم المستخدم أو كلمة المرور غير صحيحة. المحاولات المتبقية: $($MaxAttempts - $attempt)"
-    }
-
-    return $false
-}
-
 function Invoke-WinUtilScript {
     <#
 
@@ -7280,90 +7229,6 @@ function Show-CustomDialog {
     $dialog.ShowDialog()
 }
 
-function Show-WinUtilLoginDialog {
-    <#
-        .SYNOPSIS
-            Shows the login window and returns what the user entered
-
-        .DESCRIPTION
-            WPF needs an STA thread, and the caller may be on an MTA one (PowerShell 7) or
-            before the interface exists (the -Config and -Preset runs), so the window gets its
-            own STA runspace and this function waits for it to close.
-
-        .PARAMETER Message
-            A line shown above the buttons, such as how many attempts are left.
-
-        .OUTPUTS
-            An object with Username and Password (SecureString), or $null when cancelled.
-    #>
-    param(
-        [string]$Message = ""
-    )
-
-    $dialog = {
-        param($Message)
-
-        Add-Type -AssemblyName PresentationFramework
-
-        [xml]$xaml = @'
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="WinUtil العربي — تسجيل الدخول" Width="380" SizeToContent="Height"
-        WindowStartupLocation="CenterScreen" ResizeMode="NoResize" Topmost="True"
-        FlowDirection="RightToLeft" Background="#0B1F14" FontFamily="Segoe UI">
-    <StackPanel Margin="24">
-        <TextBlock Text="تسجيل الدخول" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,4"/>
-        <TextBlock Text="هذه النسخة خاصة. أدخل اسم المستخدم وكلمة المرور للمتابعة." Foreground="#86EFAC" TextWrapping="Wrap" Margin="0,0,0,16"/>
-        <TextBlock Text="اسم المستخدم" Foreground="#DCFCE7" Margin="0,0,0,4"/>
-        <TextBox Name="User" Height="32" FontSize="14" Padding="6,4" FlowDirection="LeftToRight"/>
-        <TextBlock Text="كلمة المرور" Foreground="#DCFCE7" Margin="0,12,0,4"/>
-        <PasswordBox Name="Pass" Height="32" FontSize="14" Padding="6,4" FlowDirection="LeftToRight"/>
-        <TextBlock Name="Msg" Foreground="#FCA5A5" TextWrapping="Wrap" Margin="0,10,0,0"/>
-        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
-            <Button Name="Ok" Content="دخول" IsDefault="True" Width="110" Height="34" Background="#16A34A" Foreground="White" BorderThickness="0" FontWeight="Bold"/>
-            <Button Name="Cancel" Content="إلغاء" IsCancel="True" Width="90" Height="34" Margin="10,0,0,0" Background="Transparent" Foreground="#DCFCE7" BorderBrush="#2F5F43"/>
-        </StackPanel>
-    </StackPanel>
-</Window>
-'@
-
-        $window = [Windows.Markup.XamlReader]::Load([Xml.XmlNodeReader]::new($xaml))
-        $user = $window.FindName("User")
-        $pass = $window.FindName("Pass")
-        $msg = $window.FindName("Msg")
-
-        $msg.Text = $Message
-        if ([string]::IsNullOrEmpty($Message)) {
-            $msg.Visibility = "Collapsed"
-        }
-
-        $window.FindName("Ok").Add_Click({ $window.DialogResult = $true })
-        $window.Add_ContentRendered({ [void]$user.Focus() })
-
-        if ($window.ShowDialog()) {
-            [pscustomobject]@{
-                Username = $user.Text
-                Password = $pass.SecurePassword
-            }
-        }
-    }
-
-    $runspace = [runspacefactory]::CreateRunspace()
-    $runspace.ApartmentState = "STA"
-    $runspace.ThreadOptions = "ReuseThread"
-    $runspace.Open()
-    try {
-        $shell = [powershell]::Create()
-        $shell.Runspace = $runspace
-        [void]$shell.AddScript($dialog.ToString()).AddArgument($Message)
-        $result = $shell.Invoke()
-        $shell.Dispose()
-        return ($result | Select-Object -First 1)
-    } finally {
-        $runspace.Close()
-    }
-}
-
 function Show-WinUtilMessage {
     <#
     .SYNOPSIS
@@ -8765,83 +8630,6 @@ function Test-WinUtilActiveWorkRunning {
     }
 
     return $false
-}
-
-function Test-WinUtilCredential {
-    <#
-        .SYNOPSIS
-            Checks a username and password against the login stored in config/auth.json
-
-        .DESCRIPTION
-            The password is never stored. config/auth.json holds a random salt and a
-            PBKDF2-SHA256 hash of the password, and this function derives the hash from the
-            entered password and compares the two in constant time.
-
-        .PARAMETER Username
-            The username the user typed. Compared without regard to case.
-
-        .PARAMETER Password
-            The password the user typed, as a SecureString from the login dialog.
-
-        .PARAMETER Login
-            The login object: username, salt (base64), hash (base64) and iterations.
-
-        .OUTPUTS
-            $true when both match, otherwise $false.
-    #>
-    param(
-        [Parameter(Mandatory)]
-        [AllowEmptyString()]
-        [string]$Username,
-
-        [Parameter(Mandatory)]
-        [securestring]$Password,
-
-        [Parameter(Mandatory)]
-        $Login
-    )
-
-    if ([string]::IsNullOrWhiteSpace([string]$Login.hash) -or [string]::IsNullOrWhiteSpace([string]$Login.salt)) {
-        return $false
-    }
-
-    $userMatches = [string]::Equals($Username.Trim(), ([string]$Login.username).Trim(), [StringComparison]::OrdinalIgnoreCase)
-
-    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
-    try {
-        $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-    } finally {
-        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
-    }
-
-    $iterations = [int]$Login.iterations
-    if ($iterations -lt 1) {
-        $iterations = 200000
-    }
-
-    try {
-        $salt = [Convert]::FromBase64String([string]$Login.salt)
-        $expected = [Convert]::FromBase64String([string]$Login.hash)
-    } catch {
-        return $false
-    }
-
-    $kdf = [System.Security.Cryptography.Rfc2898DeriveBytes]::new(
-        [Text.Encoding]::UTF8.GetBytes($plain), $salt, $iterations,
-        [System.Security.Cryptography.HashAlgorithmName]::SHA256)
-    try {
-        $actual = $kdf.GetBytes($expected.Length)
-    } finally {
-        $kdf.Dispose()
-    }
-
-    # Constant-time comparison: every byte is compared whatever the earlier ones were
-    $difference = 0
-    for ($i = 0; $i -lt $expected.Length; $i++) {
-        $difference = $difference -bor ($actual[$i] -bxor $expected[$i])
-    }
-
-    return ($userMatches -and $difference -eq 0 -and $expected.Length -gt 0)
 }
 
 function Register-WinUtilInputWatch {
@@ -15233,16 +15021,6 @@ $sync.configs.appx = @'
   }
 }
 '@ | ConvertFrom-Json
-$sync.configs.auth = @'
-{
-  "login": {
-    "username": "ART12",
-    "salt": "hF2DiYwBd4EvrlUBvBRHXw==",
-    "hash": "mdr4RDIDDFQLkaek2Sv2rKQnUSa8XQ7giZkXtsYuDnM=",
-    "iterations": 200000
-  }
-}
-'@ | ConvertFrom-Json
 $sync.configs.dns = @'
 {
   "Google": {
@@ -20447,17 +20225,6 @@ function Remove-WinUtilTempScript {
     ) {
         Remove-Item -LiteralPath $scriptPath -Force -ErrorAction SilentlyContinue
     }
-}
-
-#===========================================================================
-# Login: only the owner may run this copy (config/auth.json)
-#===========================================================================
-
-if (-not (Invoke-WinUtilLogin)) {
-    Write-Host "تم إيقاف التشغيل: لم يتم تسجيل الدخول." -ForegroundColor Red
-    $global:LASTEXITCODE = 1
-    if ($script:WinUtilIsFileProcess) { exit 1 }
-    return
 }
 
 #===========================================================================
