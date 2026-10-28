@@ -267,6 +267,3092 @@ Start-Transcript -Path $sync.transcriptPath -Append -NoClobber | Out-Null
 
 $Host.UI.RawUI.WindowTitle = "WinUtil"
 Clear-Host
+function Initialize-WPFUI {
+    [OutputType([void])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$TargetGridName
+    )
+
+    switch ($TargetGridName) {
+        "appscategory"{
+            Invoke-WPFUIElements -configVariable $sync.configs.appnavigation -targetGridName "appscategory" -columncount 1
+
+            # Create and configure a popup for displaying selected apps
+            $selectedAppsPopup = New-Object Windows.Controls.Primitives.Popup
+            $selectedAppsPopup.IsOpen = $false
+            $selectedAppsPopup.PlacementTarget = $sync.WPFselectedAppsButton
+            $selectedAppsPopup.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+            $selectedAppsPopup.AllowsTransparency = $true
+
+            # Style the popup with a border and background
+            $selectedAppsBorder = New-Object Windows.Controls.Border
+            $selectedAppsBorder.SetResourceReference([Windows.Controls.Control]::BackgroundProperty, "MainBackgroundColor")
+            $selectedAppsBorder.SetResourceReference([Windows.Controls.Control]::BorderBrushProperty, "MainForegroundColor")
+            $selectedAppsBorder.SetResourceReference([Windows.Controls.Control]::BorderThicknessProperty, "ButtonBorderThickness")
+            $selectedAppsBorder.Width = 200
+            $selectedAppsBorder.Padding = 5
+            $selectedAppsPopup.Child = $selectedAppsBorder
+            $sync.selectedAppsPopup = $selectedAppsPopup
+
+            # Add a stack panel inside the popup's border to organize its child elements
+            $sync.selectedAppsstackPanel = New-Object Windows.Controls.StackPanel
+            $selectedAppsBorder.Child = $sync.selectedAppsstackPanel
+
+            # Close selectedAppsPopup when mouse leaves both button and selectedAppsPopup
+            $sync.WPFselectedAppsButton.Add_MouseLeave({
+                if (-not $sync.selectedAppsPopup.IsMouseOver) {
+                    $sync.selectedAppsPopup.IsOpen = $false
+                }
+            })
+            $selectedAppsPopup.Add_MouseLeave({
+                if (-not $sync.WPFselectedAppsButton.IsMouseOver) {
+                    $sync.selectedAppsPopup.IsOpen = $false
+                }
+            })
+
+            # Creates the popup that is displayed when the user right-clicks on an app entry
+            # This popup contains buttons for installing, uninstalling, and viewing app information
+
+            $appPopup = New-Object Windows.Controls.Primitives.Popup
+            $appPopup.StaysOpen = $false
+            $appPopup.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+            $appPopup.AllowsTransparency = $true
+            # Store the popup globally so the position can be set later
+            $sync.appPopup = $appPopup
+
+            $appPopupStackPanel = New-Object Windows.Controls.StackPanel
+            $appPopupStackPanel.Orientation = "Horizontal"
+            $appPopupStackPanel.Add_MouseLeave({
+                $sync.appPopup.IsOpen = $false
+            })
+            $appPopup.Child = $appPopupStackPanel
+
+            $appButtons = @(
+            [PSCustomObject]@{ Name = "Install";    Icon = [char]0xE118 },
+            [PSCustomObject]@{ Name = "Uninstall";  Icon = [char]0xE74D },
+            [PSCustomObject]@{ Name = "Info";       Icon = [char]0xE946 }
+            )
+            foreach ($button in $appButtons) {
+                $newButton = New-Object Windows.Controls.Button
+                $newButton.Style = $sync.Form.Resources.AppEntryButtonStyle
+                $newButton.Content = $button.Icon
+                $appPopupStackPanel.Children.Add($newButton) | Out-Null
+
+                # Dynamically load the selected app object so the buttons can be reused and do not need to be created for each app
+                switch ($button.Name) {
+                    "Install" {
+                        $newButton.Add_MouseEnter({
+                            $appObject = $sync.configs.applicationsHashtable.$($sync.appPopupSelectedApp)
+                            $this.ToolTip = "تثبيت أو تحديث $($appObject.content)"
+                        })
+                        $newButton.Add_Click({
+                            $appObject = $sync.configs.applicationsHashtable.$($sync.appPopupSelectedApp)
+                            Invoke-WPFInstall -PackagesToInstall $appObject
+                        })
+                    }
+                    "Uninstall" {
+                        $newButton.Add_MouseEnter({
+                            $appObject = $sync.configs.applicationsHashtable.$($sync.appPopupSelectedApp)
+                            $this.ToolTip = "إلغاء تثبيت $($appObject.content)"
+                        })
+                        $newButton.Add_Click({
+                            $appObject = $sync.configs.applicationsHashtable.$($sync.appPopupSelectedApp)
+                            Invoke-WPFUnInstall -PackagesToUninstall $appObject
+                        })
+                    }
+                    "Info" {
+                        $newButton.Add_MouseEnter({
+                            $appObject = $sync.configs.applicationsHashtable.$($sync.appPopupSelectedApp)
+                            $this.ToolTip = "فتح موقع التطبيق في متصفحك الافتراضي`n$($appObject.link)"
+                        })
+                        $newButton.Add_Click({
+                            $appObject = $sync.configs.applicationsHashtable.$($sync.appPopupSelectedApp)
+                            Start-Process $appObject.link
+                        })
+                    }
+                }
+            }
+        }
+        "appspanel" {
+            $sync.ItemsControl = Initialize-InstallAppArea -TargetElement $TargetGridName
+            Initialize-InstallCategoryAppList -TargetElement $sync.ItemsControl -Apps $sync.configs.applicationsHashtable
+        }
+        default {
+            Write-Output "$TargetGridName not yet implemented"
+        }
+    }
+}
+
+
+function Invoke-WinUtilAutoRun {
+    <#
+
+    .SYNOPSIS
+        Runs every selected action to completion without a window
+
+    .DESCRIPTION
+        The headless path. Each action is the same job the button would start, run one at a time
+        because the job layer allows one at a time, and waited on until the worker clears the
+        busy flag.
+
+        Returns a summary of what ran so the caller can decide the exit code. Nothing here
+        touches the interface, so it behaves the same whether a window exists or not.
+
+    .PARAMETER StopTimeoutSeconds
+        How long a step that timed out is given to stop before the run gives up on the rest.
+
+    .PARAMETER StepTimeoutSeconds
+        How long a single action may take before the run gives up on it. Without a ceiling an
+        installer waiting on something that will never arrive hangs the run for good.
+
+    #>
+    param(
+        [int]$StepTimeoutSeconds = 3600,
+
+        [int]$StopTimeoutSeconds = 30
+    )
+
+    $steps = @(
+        [pscustomobject]@{ Name = "Tweaks";          Count = @($sync.selectedTweaks).Count;   Action = { Invoke-WPFtweaksbutton } }
+        [pscustomobject]@{ Name = "Toggles";         Count = @($sync.selectedToggles).Count;  Action = { Invoke-WPFToggleSelections } }
+        [pscustomobject]@{ Name = "Features";        Count = @($sync.selectedFeatures).Count; Action = { Invoke-WPFFeatureInstall } }
+        [pscustomobject]@{ Name = "Applications";    Count = @($sync.selectedApps).Count;     Action = { Invoke-WPFInstall } }
+        [pscustomobject]@{ Name = "AppX removal";    Count = @($sync.selectedAppx).Count;     Action = { Invoke-WPFAppxRemoval } }
+    )
+
+    $planned = @($steps | Where-Object { $_.Count -gt 0 })
+    if ($planned.Count -eq 0) {
+        Write-WinUtilLog -Level "WARN" -Component "AutoRun" -Message "Nothing was selected, so there is nothing to do."
+        return [pscustomobject]@{ Steps = @(); Failed = 0; TimedOut = 0; Errors = 0; Warnings = 0 }
+    }
+
+    Write-WinUtilLog -Component "AutoRun" -Message "Headless run starting: $(($planned | ForEach-Object { "$($_.Name) ($($_.Count))" }) -join ', ')"
+
+    $results = New-Object System.Collections.ArrayList
+    $runClock = [System.Diagnostics.Stopwatch]::StartNew()
+
+    foreach ($step in $planned) {
+        $errorsBefore = if ($sync.LoggedErrors) { $sync.LoggedErrors.Count } else { 0 }
+        $sync.LastJobResult = $null
+        $stepClock = [System.Diagnostics.Stopwatch]::StartNew()
+        $timedOut = $false
+
+        Write-WinUtilLog -Component "AutoRun" -Message "$($step.Name): starting $($step.Count) item(s)."
+
+        try {
+            & $step.Action
+        } catch {
+            Write-WinUtilErrorRecord -ErrorRecord $_ -Component "AutoRun" -Context "Starting $($step.Name)"
+        }
+
+        # The action starts a job and returns; the run is over when the worker clears the flag
+        while ($sync.ActiveJob) {
+            if ($stepClock.Elapsed.TotalSeconds -ge $StepTimeoutSeconds) {
+                $timedOut = $true
+                Write-WinUtilLog -Level "ERROR" -Component "AutoRun" -Message "$($step.Name) did not finish within $StepTimeoutSeconds seconds, moving on."
+                break
+            }
+            Start-Sleep -Milliseconds 200
+        }
+
+        $stepClock.Stop()
+        $newErrors = if ($sync.LoggedErrors) { $sync.LoggedErrors.Count - $errorsBefore } else { 0 }
+        $newWarnings = if ($null -ne $sync.LastJobResult) { [int]$sync.LastJobResult.Warnings } else { 0 }
+
+        $null = $results.Add([pscustomobject]@{
+            Name = $step.Name
+            Items = $step.Count
+            Seconds = [int]$stepClock.Elapsed.TotalSeconds
+            Errors = $newErrors
+            Warnings = $newWarnings
+            TimedOut = $timedOut
+        })
+
+        $outcome = if ($timedOut) { "timed out" } elseif ($newErrors -gt 0) { "finished with $newErrors error(s)" } elseif ($newWarnings -gt 0) { "finished with $newWarnings warning(s)" } else { "finished" }
+        Write-WinUtilLog -Component "AutoRun" -Message "$($step.Name): $outcome after $([int]$stepClock.Elapsed.TotalSeconds)s."
+
+        if ($timedOut) {
+            # The worker is still on the pool. Clearing the slot on its own would let the next
+            # step start beside it, so two runs would be changing the machine at once.
+            Stop-WinUtilActiveWork -NoWait | Out-Null
+
+            $stopDeadline = (Get-Date).AddSeconds($StopTimeoutSeconds)
+            while ((Test-WinUtilActiveWorkRunning) -and (Get-Date) -lt $stopDeadline) {
+                Start-Sleep -Milliseconds 200
+            }
+
+            # A job that never cleared the flag would make every later step refuse to start
+            $null = Clear-WinUtilActiveJob
+
+            if (Test-WinUtilActiveWorkRunning) {
+                Write-WinUtilLog -Level "ERROR" -Component "AutoRun" -Message "$($step.Name) could not be stopped, so the remaining steps are abandoned rather than run beside it."
+                break
+            }
+        }
+    }
+
+    $runClock.Stop()
+    Write-WinUtilTimingSummary -Scope "AutoRun" -TotalMilliseconds $runClock.ElapsedMilliseconds
+
+    return [pscustomobject]@{
+        Steps = @($results)
+        Failed = @($results | Where-Object { $_.Errors -gt 0 }).Count
+        TimedOut = @($results | Where-Object { $_.TimedOut }).Count
+        Errors = (@($results | Measure-Object -Property Errors -Sum).Sum)
+        Warnings = (@($results | Measure-Object -Property Warnings -Sum).Sum)
+    }
+}
+
+function Write-WinUtilAutoRunSummary {
+    <#
+        .SYNOPSIS
+            Prints what a headless run did and returns the exit code it should end with
+    #>
+    param(
+        [Parameter(Mandatory)]
+        $Summary
+    )
+
+    Write-Host ""
+    Write-Host "=== WinUtil headless run ===" -ForegroundColor Cyan
+
+    foreach ($step in @($Summary.Steps)) {
+        $state = if ($step.TimedOut) { "TIMED OUT" } elseif ($step.Errors -gt 0) { "$($step.Errors) error(s)" } elseif ($step.Warnings -gt 0) { "$($step.Warnings) warning(s)" } else { "ok" }
+        $colour = if ($step.TimedOut -or $step.Errors -gt 0 -or $step.Warnings -gt 0) { "Yellow" } else { "Green" }
+        Write-Host ("  {0,-14} {1,3} item(s)  {2,5}s  {3}" -f $step.Name, $step.Items, $step.Seconds, $state) -ForegroundColor $colour
+    }
+
+    if (@($Summary.Steps).Count -eq 0) {
+        Write-Host "  nothing was selected" -ForegroundColor Yellow
+        Write-Host ""
+        return 2
+    }
+
+    if ($Summary.TimedOut -gt 0 -or $Summary.Failed -gt 0) {
+        Write-Host ""
+        Write-Host "Finished with problems. See $($sync.logPath)" -ForegroundColor Yellow
+        Write-Host ""
+        return 1
+    }
+
+    if ($Summary.Warnings -gt 0) {
+        Write-Host ""
+        Write-Host "Completed with warnings. See $($sync.logPath)" -ForegroundColor Yellow
+        Write-Host ""
+        return 0
+    }
+
+    Write-Host ""
+    Write-Host "All steps completed. Log: $($sync.logPath)" -ForegroundColor Green
+    Write-Host ""
+    return 0
+}
+
+function Invoke-WPFAppxInstall {
+    if ($null -eq $sync.selectedAppx -or $sync.selectedAppx.Count -eq 0) {
+        Show-WinUtilMessage -Message "لم تحدد أي حزمة AppX" -Title "خطأ" -Button "OK" -Icon "Error"
+        return
+    }
+
+    Start-WinUtilJob -Name "AppX install" -Description "تثبيت حزم AppX" -Parameters @{
+        Selected = @($sync.selectedAppx)
+        Apps = $sync.configs.appxHashtable
+    } -ScriptBlock {
+        param($Selected, $Apps)
+
+        $totalPackages = @($Selected).Count
+        $results = @()
+        Write-WinUtilLog -Component "AppX" -Message "Starting AppX install for $totalPackages selected package(s)."
+
+        for ($index = 0; $index -lt $totalPackages; $index++) {
+            $app = $Apps[$Selected[$index]]
+            $position = $index + 1
+
+            Step-WinUtilJob -Status "جارٍ تثبيت $($app.Content) ($position/$totalPackages)" -Percent ([int](($index / $totalPackages) * 100))
+            Write-Host "Installing $($app.Content)"
+            $appResults = @(Install-WinUtilAPPX -Name $app.PackageId -StoreId $app.StoreId)
+            $results += $appResults
+            $status = if (@($appResults | Where-Object Outcome -EQ "Failed").Count -gt 0) {
+                "فشل تثبيت"
+            } elseif (@($appResults | Where-Object Outcome -EQ "Skipped").Count -gt 0) {
+                "تم تخطي"
+            } else {
+                "تم تثبيت"
+            }
+            Step-WinUtilJob -Status "$status $($app.Content) ($position/$totalPackages)" -Percent ([int](($position / $totalPackages) * 100))
+        }
+
+        Complete-WinUtilPackageRun -Action "Install" -Results $results
+    }
+}
+
+function Invoke-WPFAppxRemoval {
+    <#
+
+    .SYNOPSIS
+        Removes the selected AppX packages
+
+    #>
+
+    if ($null -eq $sync.selectedAppx -or $sync.selectedAppx.Count -eq 0) {
+        Show-WinUtilMessage -Message "لم تحدد أي حزمة AppX" -Title "خطأ" -Button "OK" -Icon "Error"
+        return
+    }
+
+    Start-WinUtilJob -Name "AppX" -Description "إزالة حزم AppX" -Parameters @{
+        Selected = @($sync.selectedAppx)
+        Apps = $sync.configs.appxHashtable
+    } -ScriptBlock {
+        param($Selected, $Apps)
+
+        $total = @($Selected).Count
+        $packageList = [System.Collections.Generic.List[string]]::new()
+        Write-WinUtilLog -Component "AppX" -Message "Starting AppX removal for $total selected package(s)."
+
+        for ($index = 0; $index -lt $total; $index++) {
+            $key = $Selected[$index]
+            $app = $Apps[$key]
+            $position = $index + 1
+            Step-WinUtilJob -Status "جارٍ إزالة $($app.Content) ($position/$total)" -Percent ([int](($index / $total) * 90))
+
+            if ($key -eq "WPFAppxMicrosoft_XboxGamingOverlay") {
+                # Making sure Game Bar isn't running
+                Write-WinUtilLog -Component "AppX" -Message "Stopping GameBarFTServer before removing Xbox Gaming Overlay."
+                Stop-Process -Name GameBarFTServer -Force -Confirm:$false -ErrorAction SilentlyContinue
+
+                # This stops annoying ms-gamebar popup when launching games.
+                Write-WinUtilLog -Component "AppX" -Message "Disabling Game DVR capture before removing Xbox Gaming Overlay."
+                Set-ItemProperty -Path HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\GameDVR -Name AppCaptureEnabled -Value 0
+            }
+
+            if ($key -eq "WPFAppxMicrosoft_WindowsNotepad") {
+                Write-WinUtilLog -Component "AppX" -Message "Stopping dllhost before removing Notepad."
+                Stop-Process -Name dllhost -Force -Confirm:$false -ErrorAction SilentlyContinue
+            }
+
+            Write-Host "Removing $($app.Content)"
+            Write-WinUtilLog -Component "AppX" -Message "Removing $($app.Content) ($($app.PackageId))."
+            Remove-WinUtilAPPX -Name $app.PackageId
+            $packageList.Add($app.PackageId)
+
+            if ($key -eq "WPFAppxMSTeams") {
+                # Uninstalls Microsoft Teams Meeting Add-in for Microsoft Office
+                Write-WinUtilLog -Component "AppX" -Message "Uninstalling Microsoft Teams meeting add-in package."
+                Get-Package -Name "Microsoft Teams*" -ErrorAction SilentlyContinue | Uninstall-Package -Force
+            }
+
+            Step-WinUtilJob -Status "تمت إزالة $($app.Content) ($position/$total)" -Percent ([int](($position / $total) * 90))
+        }
+
+        if ($packageList.Count -gt 0) {
+            Step-WinUtilJob -Status "جارٍ إزالة حزم AppX المجهّزة مسبقًا" -Percent 90
+            Remove-WinUtilProvisionedAPPX -PackageList $packageList.ToArray()
+        }
+    }
+}
+
+function Invoke-WPFButton {
+
+    <#
+
+    .SYNOPSIS
+        Routes a button press, deciding whether it is interface work or a job
+
+    .DESCRIPTION
+        This is the one place that classifies a button. Anything that changes the system runs
+        through Start-WinUtilJob, which means it gets the busy flag, the progress bar, the
+        taskbar item, the console banner and the log lines without each workflow arranging that
+        for itself. Anything that only changes what the interface is showing runs here and now,
+        because pushing it onto a worker would just make it slower.
+
+    .PARAMETER Button
+        The name of the button that was clicked
+
+    #>
+
+    Param ([string]$Button)
+
+    # Clear the progress left behind by the previous job, but never while one is running
+    if (-not $sync.ActiveJob) {
+        Step-WinUtilJob -Hide
+    }
+
+    # Switch-driven buttons that change the system. Anything in feature.json counts too. The
+    # WPFPanel* entries are the exception only when they hand off to a Windows applet, which is
+    # what a missing function means; the two that carry one change the system themselves and
+    # would otherwise run their waits on the interface thread with nothing reporting them.
+    #
+    # This is a whitelist on purpose: window chrome and popup toggles also reach here, because
+    # every Button in $sync gets wired to this function, and they must not become jobs.
+    $workButtons = @(
+        "WPFInstallUpgrade", "WPFAddUltPerf", "WPFRemoveUltPerf",
+        "WPFUpdatesdefault", "WPFUpdatesdisable", "WPFUpdatessecurity",
+        "WPFGetInstalledAppx"
+    )
+
+    $featureEntry = $sync.configs.feature.$Button
+    # Feature installation owns its selection validation and snapshots the selection before it
+    # starts a job. Wrapping it here would turn its "nothing selected" return into job success.
+    $isConfigWork = $featureEntry -and $Button -ne "WPFFeatureInstall" -and
+        ($Button -notlike "WPFPanel*" -or $featureEntry.function)
+
+    if ($isConfigWork -or $workButtons -contains $Button) {
+        $updatesDisableConfirmed = $false
+        if ($Button -eq "WPFUpdatesdisable") {
+            $updatesDisableConfirmed = Confirm-WPFUpdatesdisable
+            if (-not $updatesDisableConfirmed) {
+                return
+            }
+        }
+
+        Start-WinUtilJob -Name (Get-WinUtilButtonLabel -Button $Button) -Parameters @{
+            Button = $Button
+            UpdatesDisableConfirmed = $updatesDisableConfirmed
+        } -ScriptBlock {
+            param($Button, $UpdatesDisableConfirmed)
+
+            Invoke-WPFButtonAction -Button $Button -UpdatesDisableConfirmed:$UpdatesDisableConfirmed
+        }
+        return
+    }
+
+    # A handler that throws on the interface thread would otherwise reach the user as a bare
+    # message with no indication of which control produced it
+    try {
+        Invoke-WPFButtonAction -Button $Button
+    } catch {
+        Write-WinUtilErrorRecord -ErrorRecord $_ -Component "UI" -Context "Button '$Button'"
+    }
+}
+
+function Get-WinUtilButtonLabel {
+    <#
+    .SYNOPSIS
+        Returns the name a button's job should be reported under.
+
+    .DESCRIPTION
+        Whatever the button says is what the progress bar, the banner and the log say, so the
+        wording never drifts from the interface and there is no second list to maintain. Falls
+        back to the button name when there is nothing to read.
+    #>
+    param([string]$Button)
+
+    $content = $sync.configs.feature.$Button.Content
+    if (-not [string]::IsNullOrWhiteSpace($content)) {
+        return $content
+    }
+
+    $control = $sync.$Button
+    if ($control -and $control.Content) {
+        $text = if ($control.Content -is [string]) { $control.Content } else { $control.Content.Text }
+        if (-not [string]::IsNullOrWhiteSpace($text)) {
+            return ([string]$text).Trim()
+        }
+    }
+
+    $fallback = ($Button -replace '^WPF', '')
+    if ([string]::IsNullOrWhiteSpace($fallback)) {
+        return "WinUtil"
+    }
+    return $fallback
+}
+
+function Invoke-WPFButtonAction {
+
+    <#
+
+    .SYNOPSIS
+        Invokes the function associated with the clicked button
+
+    .DESCRIPTION
+        The work itself. Called by Invoke-WPFButton, either directly or from inside a job, so it
+        must not concern itself with progress, busy state or banners.
+
+    .PARAMETER Button
+        The name of the button that was clicked
+
+    #>
+
+    Param (
+        [string]$Button,
+        [switch]$UpdatesDisableConfirmed
+    )
+
+    # Check if button is defined in feature config with function or InvokeScript
+    if ($sync.configs.feature.$Button) {
+        $buttonConfig = $sync.configs.feature.$Button
+
+        # If button has a function defined, call it
+        if ($buttonConfig.function) {
+            $functionName = $buttonConfig.function
+            if (Get-Command $functionName -ErrorAction SilentlyContinue) {
+                & $functionName
+                return
+            }
+        }
+
+        # If button has InvokeScript defined, execute the scripts
+        if ($buttonConfig.InvokeScript -and $buttonConfig.InvokeScript.Count -gt 0) {
+            foreach ($script in $buttonConfig.InvokeScript) {
+                if (-not [string]::IsNullOrWhiteSpace($script)) {
+                    Invoke-Command -ScriptBlock ([scriptblock]::Create($script)) -ErrorAction Stop
+                }
+            }
+            return
+        }
+    }
+
+    # Fallback to hard-coded switch for buttons not in feature.json
+    Switch -Wildcard ($Button) {
+        "WPFTab?BT" {Invoke-WPFTab $Button}
+        "WPFInstall" {Invoke-WPFInstall}
+        "WPFUninstall" {Invoke-WPFUnInstall}
+        "WPFInstallUpgrade" {Invoke-WPFInstallUpgrade}
+        "WPFCollapseAllCategories" {Invoke-WPFToggleAllCategories -Action "Collapse"}
+        "WPFExpandAllCategories" {Invoke-WPFToggleAllCategories -Action "Expand"}
+        "WPFStandard" {Invoke-WPFPresets "Standard" -checkboxfilterpattern "WPFTweak*"}
+        "WPFMinimal" {Invoke-WPFPresets "Minimal" -checkboxfilterpattern "WPFTweak*"}
+        "WPFAdvanced" {Invoke-WPFPresets "Advanced" -checkboxfilterpattern "WPFTweak*"}
+        "WPFGaming" {Invoke-WPFPresets "Gaming" -checkboxfilterpattern "WPFTweak*"}
+        "WPFPrivacy" {Invoke-WPFPresets "Privacy" -checkboxfilterpattern "WPFTweak*"}
+        "WPFLowEnd" {Invoke-WPFPresets "LowEnd" -checkboxfilterpattern "WPFTweak*"}
+        "WPFClearTweaksSelection" {Invoke-WPFPresets -imported $true -checkboxfilterpattern "WPFTweak*"}
+        "WPFClearInstallSelection" {Invoke-WPFPresets -imported $true -checkboxfilterpattern "WPFInstall*"}
+        "WPFtweaksbutton" {Invoke-WPFtweaksbutton}
+        "WPFOOSUbutton" {Invoke-WPFOOSU}
+        "WPFAddUltPerf" {Invoke-WPFUltimatePerformance -Enable}
+        "WPFRemoveUltPerf" {Invoke-WPFUltimatePerformance}
+        "WPFundoall" {Invoke-WPFundoall}
+        "WPFUpdatesdefault" {Invoke-WPFUpdatesdefault}
+        "WPFUpdatesdisable" {Invoke-WPFUpdatesdisable -Confirmed:$UpdatesDisableConfirmed}
+        "WPFUpdatessecurity" {Invoke-WPFUpdatessecurity}
+        "WPFGetInstalled" {Invoke-WPFGetInstalled -CheckBox "winget"}
+        "WPFGetInstalledTweaks" {Invoke-WPFGetInstalled -CheckBox "tweaks"}
+        "WPFAppxRemoval" {Invoke-WPFTab "WPFTab6BT"}
+        "WPFOpenWebsite" {Start-Process "https://wasv3zo-cloud.github.io/winutil-ar/"}
+        "WPFBackToTweaks" {Invoke-WPFTab "WPFTab2BT"}
+        "WPFInstallSelectedAppx" {Invoke-WPFAppxInstall}
+        "WPFRemoveSelectedAppx" {Invoke-WPFAppxRemoval}
+        "WPFDefaultAppxSelection" {Invoke-WPFPresets "AppxDefault" -checkboxfilterpattern "WPFAppx*"}
+        "WPFSelectAllAppx" {
+            $sync.configs.appxHashtable.Keys | ForEach-Object {$sync.$_.IsChecked = $true}
+        }
+        "WPFClearAppxSelection" {
+            $sync.configs.appxHashtable.Keys | ForEach-Object {$sync.$_.IsChecked = $false}
+        }
+        "WPFGetInstalledAppx" {
+            $installedAppxPackages = Get-WinUtilInstalledAPPX
+            Invoke-WPFUIThread -Parameters @{ Installed = $installedAppxPackages } -ScriptBlock {
+                param($Installed)
+                foreach ($appx in $sync.configs.appxHashtable.GetEnumerator()) {
+                    if ($appx.Value.PackageId -in $Installed) {
+                        $sync.$($appx.Key).IsChecked = $true
+                    }
+                }
+            }
+        }
+        # Closing may be declined, or leave a job running that outlives the window, so the
+        # goodbye belongs at the point the process actually ends rather than here
+        "WPFCloseButton" {$sync.Form.Close()}
+        "WPFMinimizeButton" {[Windows.SystemCommands]::MinimizeWindow($sync.Form)}
+        "WPFMaximizeButton" {
+            if ($sync.Form.WindowState -eq [Windows.WindowState]::Normal) {
+                [Windows.SystemCommands]::MaximizeWindow($sync.Form)
+            } else {
+                [Windows.SystemCommands]::RestoreWindow($sync.Form)
+            }
+        }
+        "WPFselectedAppsButton" {$sync.selectedAppsPopup.IsOpen = -not $sync.selectedAppsPopup.IsOpen}
+    }
+}
+
+function Invoke-WPFExportEnvironmentReport {
+    <#
+    .SYNOPSIS
+        Exports an allowlisted, read-only environment report as JSON, with an optional bundle of
+        recent WinUtil logs.
+    #>
+
+    try {
+        $includeLogs = (Show-WinUtilMessage `
+            -Message "هل تريد تضمين سجلات WinUtil لآخر 7 أيام؟ الملف المرافق يحتوي على سجلات خام قد تتضمن مسارات محلية وأوامر وتفاصيل أخطاء. راجعه قبل مشاركته." `
+            -Title "تقرير بيئة النظام" -Button "YesNo" -Icon "Question") -eq "Yes"
+
+        Add-Type -AssemblyName System.Windows.Forms
+        $dialog = [System.Windows.Forms.SaveFileDialog]::new()
+        $dialog.Title = "تصدير تقرير بيئة النظام"
+        $dialog.Filter = "JSON files (*.json)|*.json"
+        $dialog.FileName = "WinUtilEnvironmentReport_$(Get-Date -Format 'yyyyMMdd').json"
+        $dialog.InitialDirectory = [Environment]::GetFolderPath("Desktop")
+
+        if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
+            return
+        }
+
+        $jsonPath = $dialog.FileName
+        $logsPath = Get-WinUtilEnvironmentReportLogsPath -JsonPath $jsonPath
+
+        # SaveFileDialog's own overwrite prompt only covers $jsonPath. A derived companion from a
+        # previous export must neither be silently replaced nor left looking like it belongs to new JSON.
+        if (Test-Path -LiteralPath $logsPath) {
+            if (-not $includeLogs) {
+                Show-WinUtilMessage `
+                    -Message "يوجد ملف سجلات مسبقًا في:`n$logsPath`n`nاختر اسمًا آخر للتقرير أو اختر تضمين السجلات واستبدال الملف الموجود." `
+                    -Title "تقرير بيئة النظام" -Button "OK" -Icon "Warning" | Out-Null
+                return
+            }
+
+            $replaceLogs = (Show-WinUtilMessage `
+                -Message "يوجد ملف سجلات مسبقًا في:`n$logsPath`n`nهل تريد استبداله؟" `
+                -Title "تقرير بيئة النظام" -Button "YesNo" -Icon "Warning") -eq "Yes"
+            if (-not $replaceLogs) {
+                return
+            }
+        }
+
+        # Registry reads across every tweak/toggle and the log bundle's file read add up to a
+        # couple of seconds, so the job layer keeps the Settings handler responsive and owns the
+        # progress, taskbar state, logging, and error reporting.
+        Start-WinUtilJob -Name "EnvironmentReport" -Description "تصدير تقرير بيئة النظام" -Parameters @{
+            JsonPath = $jsonPath
+            LogsPath = $logsPath
+            IncludeLogs = $includeLogs
+        } -ScriptBlock {
+            param($JsonPath, $LogsPath, $IncludeLogs)
+
+            Step-WinUtilJob -Status "جارٍ جمع تقرير بيئة النظام" -Percent 10
+            $report = Get-WinUtilEnvironmentReport
+            $json = $report | ConvertTo-Json -Depth 6
+
+            if ($IncludeLogs) {
+                Step-WinUtilJob -Status "جارٍ جمع سجلات WinUtil الأخيرة" -Percent 60
+                $logs = Get-WinUtilRecentLogs
+            }
+
+            Step-WinUtilJob -Status "جارٍ كتابة تقرير بيئة النظام" -Percent 80
+            Write-WinUtilEnvironmentReportExport -JsonPath $JsonPath -Json $json `
+                -LogsPath $LogsPath -Logs $logs -IncludeLogs:$IncludeLogs
+
+            Write-WinUtilLog -Component "EnvironmentReport" -Message "Environment report exported to $JsonPath."
+            Step-WinUtilJob -Status "اكتمل تصدير تقرير بيئة النظام" -Percent 100
+        }
+    } catch {
+        Write-WinUtilLog -Component "EnvironmentReport" -Level "ERROR" -Message "Environment report export failed: $($_.Exception.Message)"
+        Show-WinUtilMessage -Message "تعذّر تصدير تقرير بيئة النظام. $($_.Exception.Message)" `
+            -Title "تقرير بيئة النظام" -Button "OK" -Icon "None" | Out-Null
+    }
+}
+
+function Invoke-WPFFeatureInstall {
+    <#
+
+    .SYNOPSIS
+        Installs selected Windows Features
+
+    #>
+
+    if ($null -eq $sync.selectedFeatures -or $sync.selectedFeatures.Count -eq 0) {
+        Show-WinUtilMessage -Message "لم تحدد أي ميزة من ميزات ويندوز" -Title "WinUtil" -Button "OK" -Icon "Warning"
+        return
+    }
+
+    Start-WinUtilJob -Name "Features" -Description "تثبيت ميزات ويندوز" -Parameters @{
+        Features = @($sync.selectedFeatures)
+    } -ScriptBlock {
+        param($Features)
+
+        $total = @($Features).Count
+        $completed = 0
+
+        foreach ($feature in $Features) {
+            $completed++
+            Step-WinUtilJob -Status "جارٍ تثبيت $feature ($completed/$total)" -Percent ([int]((($completed - 1) / $total) * 100))
+            Measure-WinUtilStep -Scope "Features" -Name $feature -ScriptBlock {
+                Invoke-WinUtilFeatureInstall $feature
+            }
+            Step-WinUtilJob -Status "تم تثبيت $feature ($completed/$total)" -Percent ([int](($completed / $total) * 100))
+        }
+
+        Write-Host "A reboot may be required."
+    }
+}
+
+function Invoke-WPFFixesNetwork {
+    netsh winsock reset
+    netsh int ip reset
+    Write-Host "Network Configuration has been Reset. Please restart your computer."
+}
+
+function Invoke-WPFFixesNTPPool {
+    <#
+    .SYNOPSIS
+        Configures Windows to use pool.ntp.org for NTP synchronization
+
+    .DESCRIPTION
+        Replaces the default Windows NTP server (time.windows.com) with
+        pool.ntp.org for improved time synchronization accuracy and reliability.
+    #>
+
+    Start-Service w32time
+    w32tm /config /update /manualpeerlist:"pool.ntp.org,0x8" /syncfromflags:MANUAL
+
+    Restart-Service w32time
+    w32tm /resync
+
+}
+
+function Invoke-WPFFixesUpdate {
+
+    <#
+
+    .SYNOPSIS
+        Performs various tasks in an attempt to repair Windows Update
+
+    .DESCRIPTION
+        1. (Aggressive Only) Scans the system for corruption using the Invoke-WPFSystemRepair function
+        2. Stops Windows Update Services
+        3. Remove the QMGR Data file, which stores BITS jobs
+        4. (Aggressive Only) Renames the DataStore and CatRoot2 folders
+            DataStore - Contains the Windows Update History and Log Files
+            CatRoot2 - Contains the Signatures for Windows Update Packages
+        5. Renames the Windows Update Download Folder
+        6. Deletes the Windows Update Log
+        7. (Aggressive Only) Resets the Security Descriptors on the Windows Update Services
+        8. Reregisters the BITS and Windows Update DLLs
+        9. Removes the WSUS client settings
+        10. Resets WinSock
+        11. Gets and deletes all BITS jobs
+        12. Sets the startup type of the Windows Update Services then starts them
+        13. Forces Windows Update to check for updates
+
+    .PARAMETER Aggressive
+        If specified, the script will take additional steps to repair Windows Update that are more dangerous, take a significant amount of time, or are generally unnecessary
+
+    #>
+
+    param($Aggressive = $false)
+
+    Write-Progress -Id 0 -Activity "Repairing Windows Update" -PercentComplete 0
+    Step-WinUtilJob -State "Indeterminate"
+    Write-Host "Starting Windows Update Repair..."
+    # Wait for the first progress bar to show, otherwise the second one won't show
+    Start-Sleep -Milliseconds 200
+
+    if ($Aggressive) {
+        Invoke-WPFSystemRepair
+    }
+
+
+    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Stopping Windows Update Services..." -PercentComplete 10
+    # Stop the Windows Update Services
+    Write-Progress -Id 2 -ParentId 0 -Activity "Stopping Services" -Status "Stopping BITS..." -PercentComplete 0
+    Stop-Service -Name BITS -Force
+    Write-Progress -Id 2 -ParentId 0 -Activity "Stopping Services" -Status "Stopping wuauserv..." -PercentComplete 20
+    Stop-Service -Name wuauserv -Force
+    Write-Progress -Id 2 -ParentId 0 -Activity "Stopping Services" -Status "Stopping appidsvc..." -PercentComplete 40
+    Stop-Service -Name appidsvc -Force
+    Write-Progress -Id 2 -ParentId 0 -Activity "Stopping Services" -Status "Stopping cryptsvc..." -PercentComplete 60
+    Stop-Service -Name cryptsvc -Force
+    Write-Progress -Id 2 -ParentId 0 -Activity "Stopping Services" -Status "Completed" -PercentComplete 100
+
+
+    # Remove the QMGR Data file
+    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Renaming/Removing Files..." -PercentComplete 20
+    Write-Progress -Id 3 -ParentId 0 -Activity "Renaming/Removing Files" -Status "Removing QMGR Data files..." -PercentComplete 0
+    Remove-Item "$env:allusersprofile\Application Data\Microsoft\Network\Downloader\qmgr*.dat" -ErrorAction SilentlyContinue
+
+
+    if ($Aggressive) {
+        # Rename the Windows Update Log and Signature Folders
+        Write-Progress -Id 3 -ParentId 0 -Activity "Renaming/Removing Files" -Status "Renaming the Windows Update Log, Download, and Signature Folder..." -PercentComplete 20
+        Rename-Item $env:systemroot\SoftwareDistribution\DataStore DataStore.bak -ErrorAction SilentlyContinue
+        Rename-Item $env:systemroot\System32\Catroot2 catroot2.bak -ErrorAction SilentlyContinue
+    }
+
+    # Rename the Windows Update Download Folder
+    Write-Progress -Id 3 -ParentId 0 -Activity "Renaming/Removing Files" -Status "Renaming the Windows Update Download Folder..." -PercentComplete 20
+    Rename-Item $env:systemroot\SoftwareDistribution\Download Download.bak -ErrorAction SilentlyContinue
+
+    # Delete the legacy Windows Update Log
+    Write-Progress -Id 3 -ParentId 0 -Activity "Renaming/Removing Files" -Status "Removing the old Windows Update log..." -PercentComplete 80
+    Remove-Item $env:systemroot\WindowsUpdate.log -ErrorAction SilentlyContinue
+    Write-Progress -Id 3 -ParentId 0 -Activity "Renaming/Removing Files" -Status "Completed" -PercentComplete 100
+
+
+    if ($Aggressive) {
+        # Reset the Security Descriptors on the Windows Update Services
+        Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Resetting the WU Service Security Descriptors..." -PercentComplete 25
+        Write-Progress -Id 4 -ParentId 0 -Activity "Resetting the WU Service Security Descriptors" -Status "Resetting the BITS Security Descriptor..." -PercentComplete 0
+        Start-Process -NoNewWindow -FilePath "sc.exe" -ArgumentList "sdset", "bits", "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;AU)(A;;CCLCSWRPWPDTLOCRRC;;;PU)" -Wait
+        Write-Progress -Id 4 -ParentId 0 -Activity "Resetting the WU Service Security Descriptors" -Status "Resetting the wuauserv Security Descriptor..." -PercentComplete 50
+        Start-Process -NoNewWindow -FilePath "sc.exe" -ArgumentList "sdset", "wuauserv", "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;AU)(A;;CCLCSWRPWPDTLOCRRC;;;PU)" -Wait
+        Write-Progress -Id 4 -ParentId 0 -Activity "Resetting the WU Service Security Descriptors" -Status "Completed" -PercentComplete 100
+    }
+
+
+    # Reregister the BITS and Windows Update DLLs
+    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Reregistering DLLs..." -PercentComplete 40
+    $oldLocation = Get-Location
+    Set-Location $env:systemroot\system32
+    $i = 0
+    $DLLs = @(
+        "atl.dll", "urlmon.dll", "mshtml.dll", "shdocvw.dll", "browseui.dll",
+        "jscript.dll", "vbscript.dll", "scrrun.dll", "msxml.dll", "msxml3.dll",
+        "msxml6.dll", "actxprxy.dll", "softpub.dll", "wintrust.dll", "dssenh.dll",
+        "rsaenh.dll", "gpkcsp.dll", "sccbase.dll", "slbcsp.dll", "cryptdlg.dll",
+        "oleaut32.dll", "ole32.dll", "shell32.dll", "initpki.dll", "wuapi.dll",
+        "wuaueng.dll", "wuaueng1.dll", "wucltui.dll", "wups.dll", "wups2.dll",
+        "wuweb.dll", "qmgr.dll", "qmgrprxy.dll", "wucltux.dll", "muweb.dll", "wuwebv.dll"
+    )
+    foreach ($dll in $DLLs) {
+        Write-Progress -Id 5 -ParentId 0 -Activity "Reregistering DLLs" -Status "Registering $dll..." -PercentComplete ($i / $DLLs.Count * 100)
+        $i++
+        Start-Process -NoNewWindow -FilePath "regsvr32.exe" -ArgumentList "/s", $dll
+    }
+    Set-Location $oldLocation
+    Write-Progress -Id 5 -ParentId 0 -Activity "Reregistering DLLs" -Status "Completed" -PercentComplete 100
+
+
+    # Remove the WSUS client settings
+    if (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate") {
+        Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Removing WSUS client settings..." -PercentComplete 60
+        Write-Progress -Id 6 -ParentId 0 -Activity "Removing WSUS client settings" -PercentComplete 0
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate" -Name "AccountDomainSid" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate" -Name "PingID" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate" -Name "SusClientId" -ErrorAction SilentlyContinue
+        Write-Progress -Id 6 -ParentId 0 -Activity "Removing WSUS client settings" -Status "Completed" -PercentComplete 100
+    }
+
+    # Remove Group Policy Windows Update settings
+    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Removing Group Policy Windows Update settings..." -PercentComplete 60
+    Write-Progress -Id 7 -ParentId 0 -Activity "Removing Group Policy Windows Update settings" -PercentComplete 0
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" -Name "ExcludeWUDriversInQualityUpdate" -ErrorAction SilentlyContinue
+    Write-Host "Defaulting driver offering through Windows Update..."
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Device Metadata" -Name "PreventDeviceMetadataFromNetwork" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DontPromptForWindowsUpdate" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DontSearchWindowsUpdate" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DriverUpdateWizardWuSearchEnabled" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" -Name "ExcludeWUDriversInQualityUpdate" -ErrorAction SilentlyContinue
+    Write-Host "Defaulting Windows Update automatic restart..."
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoRebootWithLoggedOnUsers" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUPowerManagement" -ErrorAction SilentlyContinue
+    Write-Host "Clearing ANY Windows Update Policy settings..."
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" -Name "BranchReadinessLevel" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" -Name "DeferFeatureUpdatesPeriodInDays" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" -Name "DeferQualityUpdatesPeriodInDays" -ErrorAction SilentlyContinue
+    Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "HKCU:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "HKCU:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "HKLM:\Software\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "HKLM:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "HKLM:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue
+    Start-Process -NoNewWindow -FilePath "secedit" -ArgumentList "/configure", "/cfg", "$env:windir\inf\defltbase.inf", "/db", "defltbase.sdb", "/verbose" -Wait
+    Start-Process -NoNewWindow -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicyUsers" -Wait
+    Start-Process -NoNewWindow -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicy" -Wait
+    Start-Process -NoNewWindow -FilePath "gpupdate" -ArgumentList "/force" -Wait
+    Write-Progress -Id 7 -ParentId 0 -Activity "Removing Group Policy Windows Update settings" -Status "Completed" -PercentComplete 100
+
+
+    # Reset WinSock
+    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Resetting WinSock..." -PercentComplete 65
+    Write-Progress -Id 7 -ParentId 0 -Activity "Resetting WinSock" -Status "Resetting WinSock..." -PercentComplete 0
+    Start-Process -NoNewWindow -FilePath "netsh" -ArgumentList "winsock", "reset"
+    Start-Process -NoNewWindow -FilePath "netsh" -ArgumentList "winhttp", "reset", "proxy"
+    Start-Process -NoNewWindow -FilePath "netsh" -ArgumentList "int", "ip", "reset"
+    Write-Progress -Id 7 -ParentId 0 -Activity "Resetting WinSock" -Status "Completed" -PercentComplete 100
+
+
+    # Get and delete all BITS jobs
+    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Deleting BITS jobs..." -PercentComplete 75
+    Write-Progress -Id 8 -ParentId 0 -Activity "Deleting BITS jobs" -Status "Deleting BITS jobs..." -PercentComplete 0
+    Get-BitsTransfer | Remove-BitsTransfer
+    Write-Progress -Id 8 -ParentId 0 -Activity "Deleting BITS jobs" -Status "Completed" -PercentComplete 100
+
+
+    # Change the startup type of the Windows Update Services and start them
+    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Starting Windows Update Services..." -PercentComplete 90
+    Write-Progress -Id 9 -ParentId 0 -Activity "Starting Windows Update Services" -Status "Starting BITS..." -PercentComplete 0
+    Get-Service BITS | Set-Service -StartupType Manual -PassThru | Start-Service
+    Write-Progress -Id 9 -ParentId 0 -Activity "Starting Windows Update Services" -Status "Starting wuauserv..." -PercentComplete 25
+    Get-Service wuauserv | Set-Service -StartupType Manual -PassThru | Start-Service
+    Write-Progress -Id 9 -ParentId 0 -Activity "Starting Windows Update Services" -Status "Starting AppIDSvc..." -PercentComplete 50
+    # The AppIDSvc service is protected, so the startup type has to be changed in the registry
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\AppIDSvc" -Name "Start" -Value "3" # Manual
+    Start-Service AppIDSvc
+    Write-Progress -Id 9 -ParentId 0 -Activity "Starting Windows Update Services" -Status "Starting CryptSvc..." -PercentComplete 75
+    Get-Service CryptSvc | Set-Service -StartupType Manual -PassThru | Start-Service
+    Write-Progress -Id 9 -ParentId 0 -Activity "Starting Windows Update Services" -Status "Completed" -PercentComplete 100
+
+
+    # Force Windows Update to check for updates
+    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Forcing discovery..." -PercentComplete 95
+    Write-Progress -Id 10 -ParentId 0 -Activity "Forcing discovery" -Status "Forcing discovery..." -PercentComplete 0
+    try {
+        (New-Object -ComObject Microsoft.Update.AutoUpdate).DetectNow()
+    } catch {
+        Write-WinUtilLog -Level "ERROR" -Component "Updates" -Message "Failed to create Windows Update COM object: $_"
+        Write-Warning "Failed to create Windows Update COM object: $_"
+    }
+    Start-Process -NoNewWindow -FilePath "wuauclt" -ArgumentList "/resetauthorization", "/detectnow"
+    Write-Progress -Id 10 -ParentId 0 -Activity "Forcing discovery" -Status "Completed" -PercentComplete 100
+    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Completed" -PercentComplete 100
+
+    Show-WinUtilMessage -Message "تم تحميل الإعدادات الافتراضية.`n يرجى إعادة تشغيل الكمبيوتر" -Title "إعادة ضبط Windows Update" -Button "OK" -Icon "Information" | Out-Null
+
+    # Remove the progress bars
+    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Completed
+    Write-Progress -Id 1 -Activity "Scanning for corruption" -Completed
+    Write-Progress -Id 2 -Activity "Stopping Services" -Completed
+    Write-Progress -Id 3 -Activity "Renaming/Removing Files" -Completed
+    Write-Progress -Id 4 -Activity "Resetting the WU Service Security Descriptors" -Completed
+    Write-Progress -Id 5 -Activity "Reregistering DLLs" -Completed
+    Write-Progress -Id 6 -Activity "Removing Group Policy Windows Update settings" -Completed
+    Write-Progress -Id 7 -Activity "Resetting WinSock" -Completed
+    Write-Progress -Id 8 -Activity "Deleting BITS jobs" -Completed
+    Write-Progress -Id 9 -Activity "Starting Windows Update Services" -Completed
+    Write-Progress -Id 10 -Activity "Forcing discovery" -Completed
+}
+
+function Invoke-WPFFixesWinget {
+
+    <#
+
+    .SYNOPSIS
+        Fixes WinGet by running `choco install winget`
+    .DESCRIPTION
+        BravoNorris for the fantastic idea of a button to reinstall WinGet
+    #>
+
+    Step-WinUtilJob -Status "جارٍ إصلاح WinGet" -State "Indeterminate"
+    Install-WinUtilWinget -Force
+}
+
+function Invoke-WPFGetInstalled {
+    <#
+    .SYNOPSIS
+        Detects what is already installed or applied and ticks the matching boxes
+
+    .PARAMETER checkbox
+        Indicates whether to check for installed 'winget' programs or applied 'tweaks'
+
+    #>
+    param($checkbox)
+
+    if (($sync.ChocoRadioButton.IsChecked -eq $false) -and ((Test-WinUtilPackageManager -winget) -eq "not-installed") -and $checkbox -eq "winget") {
+        return
+    }
+
+    Start-WinUtilJob -Name "Detect installed" -Description "التحقق مما هو مثبّت" -Parameters @{
+        Checkbox = $checkbox
+        ManagerPreference = $sync.preferences.packagemanager
+    } -ScriptBlock {
+        param($Checkbox, $ManagerPreference)
+
+        Step-WinUtilJob -Status "جارٍ التحقق مما هو مثبّت" -State "Indeterminate"
+
+        $found = @()
+        if ($Checkbox -eq "winget") {
+            $source = if ($ManagerPreference -eq "Choco") { "choco" } else { $Checkbox }
+            $found = @(Invoke-WinUtilCurrentSystem -CheckBox $source)
+        } elseif ($Checkbox -eq "tweaks") {
+            $found = @(Invoke-WinUtilCurrentSystem -CheckBox $Checkbox)
+        }
+
+        Write-WinUtilLog -Component "Install" -Message "Detected $($found.Count) existing item(s) for $Checkbox."
+
+        # Ticking boxes touches the controls, so it happens on the interface thread
+        Invoke-WPFUIThread -Parameters @{ Checkbox = $Checkbox; Found = $found } -ScriptBlock {
+            param($Checkbox, $Found)
+
+            if ($Checkbox -eq "winget") {
+                foreach ($name in $Found) {
+                    if (-not $sync.selectedApps.Contains($name)) {
+                        $sync.selectedApps.Add($name)
+                    }
+                }
+                Reset-WPFCheckBoxes -checkboxfilterpattern "WPFInstall*"
+            } else {
+                foreach ($name in $Found) {
+                    $sync.$name.ischecked = $true
+                }
+            }
+        }
+    }
+}
+
+function Invoke-WPFImpex {
+    <#
+
+    .SYNOPSIS
+        Handles importing and exporting of the checkboxes checked for the tweaks section
+
+    .PARAMETER type
+        Indicates whether to 'import' or 'export'
+
+    .PARAMETER checkbox
+        The checkbox to export to a file or apply the imported file to
+
+    .EXAMPLE
+        Invoke-WPFImpex -type "export"
+
+    #>
+    param(
+        $type,
+        $Config = $null,
+
+        # Add to the current selection instead of replacing it. Used when a preset has already
+        # set a baseline that the imported file is meant to extend.
+        [switch]$Merge,
+
+        # Headless runs cannot show a dialog and must fail rather than applying a partial request.
+        [switch]$ThrowOnError
+    )
+
+    function ConfigDialog {
+        if (!$Config) {
+            switch ($type) {
+                "export" { $FileBrowser = New-Object System.Windows.Forms.SaveFileDialog }
+                "import" { $FileBrowser = New-Object System.Windows.Forms.OpenFileDialog }
+            }
+            $FileBrowser.InitialDirectory = [Environment]::GetFolderPath('Desktop')
+            $FileBrowser.Filter = "JSON Files (*.json)|*.json"
+            $FileBrowser.ShowDialog() | Out-Null
+
+            if ($FileBrowser.FileName -eq "") {
+                return $null
+            } else {
+                return $FileBrowser.FileName
+            }
+        } else {
+            return $Config
+        }
+    }
+
+    switch ($type) {
+        "export" {
+            try {
+                $Config = ConfigDialog
+                if ($Config) {
+                    $allConfs = ($sync.selectedApps + $sync.selectedTweaks + $sync.selectedToggles + $sync.selectedFeatures + $sync.selectedAppx) | ForEach-Object { [string]$_ }
+                    if (-not $allConfs) {
+                        Show-WinUtilMessage -Message (
+                            "لم تحدد أي إعدادات لتصديرها. حدد تطبيقًا أو تحسينًا أو مفتاح تبديل أو ميزة أو حزمة AppX واحدة على الأقل قبل التصدير."
+                        ) -Title "لا يوجد ما يُصدَّر" -Button "OK" -Icon "Warning" | Out-Null
+                        return
+                    }
+                    $jsonFile = $allConfs | ConvertTo-Json
+                    $jsonFile | Out-File $Config -Force
+                    "iex ""& { `$([Text.Encoding]::UTF8.GetString((New-Object Net.WebClient).DownloadData('https://raw.githubusercontent.com/wasv3zo-cloud/winutil-ar/release/winutil.ps1')).TrimStart([char]0xFEFF)) } -Config '$Config'""" | Set-Clipboard
+                }
+            } catch {
+                Write-Error "An error occurred while exporting: $_"
+            }
+        }
+        "import" {
+            try {
+                $Config = ConfigDialog
+                if ($Config) {
+                    try {
+                        if ($Config -match '^https?://') {
+                            $jsonFile = (Invoke-WebRequest "$Config" -ErrorAction Stop).Content | ConvertFrom-Json
+                        } else {
+                            $jsonFile = Get-Content $Config -ErrorAction Stop | ConvertFrom-Json
+                        }
+                    } catch {
+                        $message = "Failed to load the JSON file from the specified path or URL: $_"
+                        if ($ThrowOnError) { throw $message }
+                        Write-Error $message
+                        return
+                    }
+                    $isLegacyConfig = $jsonFile -is [System.Management.Automation.PSCustomObject] -and
+                        $null -ne $jsonFile.PSObject.Properties["Install"] -and
+                        $null -ne $jsonFile.PSObject.Properties["WPFInstall"]
+                    if ($isLegacyConfig) {
+                        Write-WinUtilLog -Component "Impex" -Message "Detected legacy WinUtil config structure; flattening import object."
+                        # Legacy exports stored checkbox keys in WPFInstall and duplicated package
+                        # source metadata in Install. Current package IDs come from the app catalog,
+                        # so only the selection-key properties are restored.
+                        $flattenedJson = @(
+                            foreach ($property in $jsonFile.PSObject.Properties) {
+                                if ($property.Name -notmatch '^WPF(?:Install|Tweaks|Toggle|Feature|Appx)') {
+                                    continue
+                                }
+
+                                foreach ($selection in @($property.Value)) {
+                                    if ($selection -is [string] -and -not [string]::IsNullOrWhiteSpace($selection)) {
+                                        $selection
+                                    }
+                                }
+                            }
+                        )
+                    } else {
+                        # New style config: flat array of strings
+                        $flattenedJson = $jsonFile
+                    }
+
+                    if (-not $flattenedJson) {
+                        Show-WinUtilMessage -Message "الملف المحدد لا يحتوي على إعدادات لاستيرادها. لم تُجرَ أي تغييرات." -Title "ملف إعدادات فارغ" -Button "OK" -Icon "Warning" | Out-Null
+                        return
+                    }
+
+                    # Replace unless this import is merging onto something already selected,
+                    # which the headless path does when it is given a preset and a config
+                    $replaceMode = @{}
+                    if (-not $Merge) { $replaceMode["Replace"] = $true }
+
+                    # Modern configs stay strict. Legacy configs can reference entries that no
+                    # longer exist, so restore supported selections and report the retired keys.
+                    if ($isLegacyConfig) {
+                        $skippedSelections = @(Update-WinUtilSelections -flatJson $flattenedJson @replaceMode -SkipUnknown)
+
+                        if ($skippedSelections.Count -gt 0) {
+                            $skippedSummary = $skippedSelections -join ", "
+                            Write-WinUtilLog -Component "Impex" -Level "WARN" -Message "Skipped unsupported legacy selections: $skippedSummary"
+                        }
+
+                        if ($skippedSelections.Count -eq @($flattenedJson).Count) {
+                            if ($sync.Form) {
+                                Show-WinUtilMessage -Message "ملف الإعدادات القديم هذا لا يحتوي على إعدادات يدعمها هذا الإصدار من WinUtil. لم تُجرَ أي تغييرات." -Title "ملف إعدادات قديم غير مدعوم" -Icon "Warning" | Out-Null
+                            }
+                            return
+                        }
+
+                        if ($skippedSelections.Count -gt 0) {
+                            $skippedDisplay = @($skippedSelections | Select-Object -First 10) -join ", "
+                            if ($skippedSelections.Count -gt 10) {
+                                $skippedDisplay += "`n...و$($skippedSelections.Count - 10) أخرى. راجع سجل WinUtil للتفاصيل."
+                            }
+                            if ($sync.Form) {
+                                Show-WinUtilMessage -Message "استُوردت الإعدادات المدعومة، وتم تخطي الإعدادات المتقاعدة التالية:`n`n$skippedDisplay" -Title "استيراد جزئي لملف إعدادات قديم" -Icon "Warning" | Out-Null
+                            }
+                        }
+                    } else {
+                        # Build and validate every imported selection before replacing the current
+                        # state. This keeps a malformed config from leaving partial selections behind.
+                        Update-WinUtilSelections -flatJson $flattenedJson @replaceMode
+                    }
+
+                    if ($sync.Form) {
+                        Reset-WPFCheckBoxes -doToggles $true
+                    }
+                }
+            } catch {
+                if ($ThrowOnError) { throw }
+                Write-Error "An error occurred while importing: $_"
+            }
+        }
+    }
+}
+
+function Invoke-WPFInstall {
+    <#
+    .SYNOPSIS
+        Installs the selected programs using winget, if one or more of the selected programs are already installed on the system, winget will try and perform an upgrade if there's a newer version to install.
+    #>
+    param(
+        [Parameter(Mandatory = $false)]
+        [PSObject[]]$PackagesToInstall = $($sync.selectedApps | Foreach-Object { $sync.configs.applicationsHashtable.$_ })
+    )
+
+    if ($PackagesToInstall.Count -eq 0) {
+        $WarningMsg = "يرجى تحديد البرامج التي تريد تثبيتها أو تحديثها."
+        Show-WinUtilMessage -Message $WarningMsg -Title "WinUtil" -Button "OK" -Icon "Warning"
+        return
+    }
+
+    $ManagerPreference = $sync.preferences.packagemanager
+    Write-WinUtilLog -Component "Install" -Message "Install requested for $(@($PackagesToInstall).Count) selected package(s) using preference: $ManagerPreference"
+    $packageSummary = Get-WinUtilPackageLogSummary -Packages $PackagesToInstall -Preference $ManagerPreference
+    Write-WinUtilLog -Component "Install" -Message "Install selected package(s): $($packageSummary -join '; ')"
+
+    Start-WinUtilJob -Name "Install" -Description "تثبيت التطبيقات" -DisableAppList -Parameters @{
+        PackagesToInstall = $PackagesToInstall
+        ManagerPreference = $ManagerPreference
+    } -ScriptBlock {
+        param($PackagesToInstall, $ManagerPreference)
+
+        $packagesSorted = Get-WinUtilSelectedPackages -PackageList $PackagesToInstall -Preference $ManagerPreference
+        $packagesWinget = $packagesSorted['Winget']
+        $packagesChoco = $packagesSorted['Choco']
+        $totalPackages = @($packagesWinget).Count + @($packagesChoco).Count
+        $completedPackages = 0
+        Write-WinUtilLog -Component "Install" -Message "Install package manager split: winget=$(@($packagesWinget).Count), choco=$(@($packagesChoco).Count)"
+
+        $results = @()
+
+        if ($packagesWinget.Count -gt 0 -and $packagesWinget -ne "0") {
+            Install-WinUtilWinget
+            foreach ($program in $packagesWinget) {
+                $position = $completedPackages + 1
+                Step-WinUtilJob -Status "جارٍ تثبيت $program ($position/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
+
+                $results += Measure-WinUtilStep -Scope "Install" -Name "winget $program" -ScriptBlock {
+                    Install-WinUtilProgramWinget -Action Install -Programs @($program)
+                }
+                $completedPackages++
+                Step-WinUtilJob -Status "تم تثبيت $program ($completedPackages/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
+            }
+        }
+
+        if ($packagesChoco.Count -gt 0) {
+            $position = $completedPackages + 1
+            Step-WinUtilJob -Status "جارٍ تثبيت حزم Chocolatey ($position/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
+
+            Install-WinUtilChoco
+            $chocoBase = [int](($completedPackages / $totalPackages) * 100)
+            $chocoSpan = [int]((@($packagesChoco).Count / $totalPackages) * 100)
+            $results += Measure-WinUtilStep -Scope "Install" -Name "choco $($packagesChoco -join ', ')" -ScriptBlock {
+                Install-WinUtilProgramChoco -Action Install -Programs $packagesChoco -ProgressBase $chocoBase -ProgressSpan $chocoSpan
+            }
+            $completedPackages += @($packagesChoco).Count
+            Step-WinUtilJob -Status "تم تثبيت حزم Chocolatey ($completedPackages/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
+        }
+
+        Complete-WinUtilPackageRun -Action "Install" -Results $results
+    }
+}
+
+function Invoke-WPFInstallUpgrade {
+    <#
+
+    .SYNOPSIS
+        Upgrades every package that has an update available
+
+    .DESCRIPTION
+        Runs on the worker like any other package work, so the progress bar, the taskbar item
+        and the log report it the same way an install does.
+
+    #>
+
+    # The radio button belongs to the interface thread; this body runs on a worker. The
+    # preference it maintains carries the same answer and is what every other workflow reads.
+    if ($sync.preferences.packagemanager -eq "Choco") {
+        Step-WinUtilJob -Status "جارٍ تجهيز Chocolatey" -State "Indeterminate"
+        Install-WinUtilChoco
+
+        Write-WinUtilLog -Component "Install" -Message "Upgrading all Chocolatey packages."
+        Step-WinUtilJob -Status "جارٍ تحديث جميع حزم Chocolatey" -State "Indeterminate"
+
+        # "all" is choco's own name for every installed package, so this stays one call
+        $result = Measure-WinUtilStep -Scope "Install" -Name "choco upgrade all" -ScriptBlock {
+            Install-WinUtilProgramChoco -Action Upgrade -Programs @("all")
+        }
+        Complete-WinUtilPackageRun -Action "Upgrade" -Results @($result)
+        return
+    }
+
+    Step-WinUtilJob -Status "جارٍ تجهيز WinGet" -State "Indeterminate"
+    Install-WinUtilWinget
+
+    Write-WinUtilLog -Component "Install" -Message "Upgrading all WinGet packages."
+    Step-WinUtilJob -Status "جارٍ تحديث جميع حزم WinGet" -State "Indeterminate"
+
+    # Let WinGet resolve every package against its recorded source. Parsing its localized,
+    # width-truncated table loses identifiers and source information.
+    $result = Measure-WinUtilStep -Scope "Install" -Name "winget upgrade --all" -ScriptBlock {
+        Install-WinUtilProgramWinget -Action Upgrade -Programs @("all")
+    }
+    Complete-WinUtilPackageRun -Action "Upgrade" -Results @($result)
+}
+
+function Invoke-WPFOOSU {
+    Start-WinUtilJob -Name "OOSU" -Description "تنزيل O&O ShutUp10++" -Parameters @{
+        DownloadPath = Join-Path $sync.winutildir "ooshutup10.exe"
+    } -ScriptBlock {
+        param($DownloadPath)
+
+        Write-WinUtilLog -Component "OOSU" -Message "Downloading O&O ShutUp10++."
+
+        Save-WinUtilFile -Uri "https://dl5.oo-software.com/files/ooshutup10/OOSU10.exe" -DestinationPath $DownloadPath -ProgressCallback {
+            param($percent)
+            Step-WinUtilJob -Status "جارٍ تنزيل O&O ShutUp10++ ($percent%)" -Percent $percent
+        }
+
+        Step-WinUtilJob -Status "جارٍ تشغيل O&O ShutUp10++" -Percent 100
+        Start-Process -FilePath $DownloadPath
+        Write-WinUtilLog -Component "OOSU" -Message "O&O ShutUp10++ launched."
+    }
+}
+
+function Invoke-WPFPanelAutologin {
+    $autologonPath = Join-Path $sync.winutildir "autologin.exe"
+    Invoke-WebRequest -Uri https://live.sysinternals.com/Autologon.exe -OutFile $autologonPath
+    Start-Process -FilePath $autologonPath -ArgumentList /accepteula
+}
+
+function Invoke-WPFPopup {
+    param (
+        [ValidateSet("Show", "Hide", "Toggle")]
+        [string]$Action = "",
+
+        [string[]]$Popups = @(),
+
+        [ValidateScript({
+            $invalid = $_.GetEnumerator() | Where-Object { $_.Value -notin @("Show", "Hide", "Toggle") }
+            if ($invalid) {
+                throw "Found invalid Popup-Action pair(s): " + ($invalid | ForEach-Object { "$($_.Key) = $($_.Value)" } -join "; ")
+            }
+            $true
+        })]
+        [hashtable]$PopupActionTable = @{}
+    )
+
+    if (-not $PopupActionTable.Count -and (-not $Action -or -not $Popups.Count)) {
+        throw "Provide either 'PopupActionTable' or both 'Action' and 'Popups'."
+    }
+
+    if ($PopupActionTable.Count -and ($Action -or $Popups.Count)) {
+        throw "Use 'PopupActionTable' on its own, or 'Action' with 'Popups'."
+    }
+
+    # Collect popups and actions
+    $PopupsToProcess = if ($PopupActionTable.Count) {
+        $PopupActionTable.GetEnumerator() | ForEach-Object { [PSCustomObject]@{ Name = "$($_.Key)Popup"; Action = $_.Value } }
+    } else {
+        $Popups | ForEach-Object { [PSCustomObject]@{ Name = "$_`Popup"; Action = $Action } }
+    }
+
+    $PopupsNotFound = @()
+
+    # Apply actions
+    foreach ($popupEntry in $PopupsToProcess) {
+        $popupName = $popupEntry.Name
+
+        if (-not $sync.$popupName) {
+            $PopupsNotFound += $popupName
+            continue
+        }
+
+        $sync.$popupName.IsOpen = switch ($popupEntry.Action) {
+            "Show" { $true }
+            "Hide" { $false }
+            "Toggle" { -not $sync.$popupName.IsOpen }
+        }
+    }
+
+    if ($PopupsNotFound.Count -gt 0) {
+        throw "Could not find the following popups: $($PopupsNotFound -join ', ')"
+    }
+}
+
+function Invoke-WPFPresets {
+    <#
+
+    .SYNOPSIS
+        Sets the checkboxes in winutil to the given preset
+
+    .PARAMETER preset
+        The preset to set the checkboxes to
+
+    .PARAMETER imported
+        If the preset is imported from a file, defaults to false
+
+    .PARAMETER checkboxfilterpattern
+        The Pattern to use when filtering through CheckBoxes, defaults to "**"
+
+    #>
+
+    param (
+        [Parameter(position=0)]
+        [Array]$preset = $null,
+
+        [Parameter(position=1)]
+        [bool]$imported = $false,
+
+        [Parameter(position=2)]
+        [string]$checkboxfilterpattern = "**"
+    )
+
+    if ($imported -eq $true) {
+        $CheckBoxesToCheck = $preset
+    } else {
+        $CheckBoxesToCheck = $sync.configs.preset.$preset
+    }
+
+    # clear out the filtered pattern so applying a preset replaces the current
+    # state rather than merging with it
+    switch ($checkboxfilterpattern) {
+        "WPFTweak*" { $sync.selectedTweaks = [System.Collections.Generic.List[string]]::new() }
+        "WPFInstall*" { $sync.selectedApps = [System.Collections.Generic.List[string]]::new() }
+        "WPFAppx*" { $sync.selectedAppx = [System.Collections.Generic.List[string]]::new() }
+        "WPFFeature*" { $sync.selectedFeatures = [System.Collections.Generic.List[string]]::new() }
+        "WPFToggle*" { $sync.selectedToggles = [System.Collections.Generic.List[string]]::new() }
+        default {}
+    }
+
+    if ($preset) {
+        Update-WinUtilSelections -flatJson $CheckBoxesToCheck
+    }
+
+    Reset-WPFCheckBoxes -doToggles $false -checkboxfilterpattern $checkboxfilterpattern
+
+    if ($checkboxfilterpattern -eq "WPFTweak*") {
+        Update-WinUtilTweakCount | Out-Null
+    }
+
+    # A preset can tick tweaks inside a folded category; open it so nothing is selected out of sight
+    foreach ($header in @($sync.CollapsibleTweakHeaders)) {
+        if ($null -ne $header -and $header.Tag.Collapsed) {
+            Set-WinUtilCategoryCollapsed -Label $header -Collapsed $true -ExpandIfSelected
+        }
+    }
+}
+
+function Invoke-WPFRunspace {
+
+    <#
+
+    .SYNOPSIS
+        Creates and invokes a runspace using the given scriptblock and argumentlist
+
+    .PARAMETER ScriptBlock
+        The scriptblock to invoke in the runspace
+
+    .PARAMETER ArgumentList
+        A list of arguments to pass to the runspace
+
+    .PARAMETER ParameterList
+        A list of named parameters that should be provided.
+    .EXAMPLE
+        Invoke-WPFRunspace `
+            -ScriptBlock $sync.ScriptsInstallPrograms `
+            -ArgumentList "Installadvancedip,Installbitwarden" `
+
+        Invoke-WPFRunspace`
+            -ScriptBlock $sync.ScriptsInstallPrograms `
+            -ParameterList @(("PackagesToInstall", @("Installadvancedip,Installbitwarden")),("ChocoPreference", $true))
+    #>
+
+    [CmdletBinding()]
+    [OutputType([System.IAsyncResult])]
+    Param (
+        $ScriptBlock,
+        $ArgumentList,
+        $ParameterList
+    )
+
+    $poolLock = Get-WinUtilRunspacePoolLock
+    [System.Threading.Monitor]::Enter($poolLock)
+    try {
+        # The lifecycle lock keeps the final shutdown check, invocation start, and registration
+        # atomic with pool closure. Otherwise shutdown can miss a newly started invocation.
+        if ($sync.ShuttingDown) {
+            Write-WinUtilLog -Level "WARN" -Component "UI" -Message "Refused to start background work, WinUtil is closing."
+            return $null
+        }
+
+        Initialize-WinUtilRunspacePool | Out-Null
+
+        # Create a PowerShell instance
+        $powershell = [powershell]::Create()
+
+        # Add Scriptblock and Arguments to runspace
+        [void]$powershell.AddScript($ScriptBlock)
+        [void]$powershell.AddArgument($ArgumentList)
+
+        foreach ($parameter in $ParameterList) {
+            # A single pair written as @(("Name", $value)) collapses to a two element array, and
+            # indexing it then yields the first two characters of the name
+            if ($parameter -is [string] -or $parameter.Count -ne 2) {
+                throw "ParameterList takes name and value pairs. Received '$parameter'. A single pair needs a leading comma: -ParameterList (,('Name', `$value))"
+            }
+            [void]$powershell.AddParameter($parameter[0], $parameter[1])
+        }
+
+        $powershell.RunspacePool = $sync.runspace
+
+        # Track before starting so no exception after BeginInvoke can make the caller release its
+        # job token while work is actually running. Cleanup registration is best-effort and has a
+        # background-thread fallback; it must never synchronously wait on a worker from the WPF
+        # dispatcher because the worker's finalizer may be waiting to restore UI state.
+        try {
+            Register-WinUtilActiveShell -PowerShell $powershell
+        } catch {
+            $powershell.Dispose()
+            throw
+        }
+        $handle = $null
+        try {
+            $handle = $powershell.BeginInvoke()
+        } catch {
+            $startError = $_
+            $sync.ActiveShells.Remove($powershell)
+            $powershell.Dispose()
+            throw $startError
+        }
+
+        try {
+            Register-WinUtilRunspaceCleanup -PowerShell $powershell -Handle $handle
+        } catch {
+            # The worker remains tracked and owns its job token. Treat it as scheduled so another
+            # system-changing job cannot start beside it; later work/shutdown can reclaim the shell.
+            Write-WinUtilLog -Level "WARN" -Component "UI" -Message "Could not register background cleanup: $($_.Exception.Message)"
+        }
+
+        return $handle
+    } finally {
+        [System.Threading.Monitor]::Exit($poolLock)
+    }
+}
+
+function Invoke-WPFSelectedCheckboxesUpdate ($type, $checkboxName) {
+    $listName = switch -Regex ($checkboxName) {
+        '^WPFInstall' { 'selectedApps' }
+        '^WPFTweaks'  { 'selectedTweaks' }
+        '^WPFToggle'  { 'selectedToggles' }
+        '^WPFFeature' { 'selectedFeatures' }
+        '^WPFAppx'    { 'selectedAppx' }
+    }
+
+    $selectionChanged = $false
+    if ($type -eq "Add") {
+        if (-not $sync.$listName.Contains($checkboxName)) {
+            $sync.$listName.Add($checkboxName)
+            $selectionChanged = $true
+        }
+    } else {
+        $selectionChanged = $sync.$listName.Remove($checkboxName)
+    }
+
+    if ($listName -eq "selectedTweaks" -and $selectionChanged) {
+        Update-WinUtilTweakCount | Out-Null
+    }
+
+    if ($listName -eq "selectedApps" -and $selectionChanged) {
+        $sync.WPFselectedAppsButton.Content = "التطبيقات المحددة: $($sync.selectedApps.Count)"
+        $sync.selectedAppsstackPanel.Children.Clear()
+        $sync.selectedApps | Sort-Object | ForEach-Object {
+            Add-SelectedAppsMenuItem -name $sync.configs.applicationsHashtable.$_.Content -key $_
+        }
+    }
+}
+
+function Invoke-WPFSSHServer {
+    <#
+
+    .SYNOPSIS
+        Installs and starts the OpenSSH Server
+
+  #>
+
+    Invoke-WinUtilSSHServer
+}
+
+function Invoke-WPFSystemRepair {
+    <#
+    .SYNOPSIS
+        Checks for system corruption using SFC, and DISM
+        Checks for disk failure using Chkdsk
+
+    .DESCRIPTION
+        1. Chkdsk - Checks for disk errors, which can cause system file corruption and notifies of early disk failure
+        2. SFC - scans protected system files for corruption and fixes them
+        3. DISM - Repair a corrupted Windows operating system image
+    #>
+
+    # SuccessCodes maps the non-zero exits a step treats as success to what they mean. The codes
+    # are per step because the same number means different things: 1 and 2 are ordinary chkdsk
+    # outcomes, while 1 from sfc is a failure, and 3010 is a repaired image from DISM only.
+    $steps = @(
+        @{
+            Label = "Checking the disk for errors"
+            Arguments = "/c chkdsk /scan /perf"
+            # 3 is left out: the disk could not be checked, or has errors an online scan cannot
+            # fix, and the steps after this one are not worth running on a disk in that state.
+            SuccessCodes = @{
+                1 = "errors were found and fixed"
+                2 = "cleanup was performed, or was skipped because /f was not given"
+            }
+        },
+        @{
+            Label = "Scanning protected system files"
+            Arguments = "/c sfc /scannow"
+            SuccessCodes = @{}
+        },
+        @{
+            Label = "Repairing the Windows image"
+            Arguments = "/c dism /online /cleanup-image /restorehealth"
+            SuccessCodes = @{
+                3010 = "a restart is needed for the repair to take effect"
+            }
+        }
+    )
+
+    $completed = 0
+    foreach ($step in $steps) {
+        Step-WinUtilJob -Status "$($step.Label) ($($completed + 1)/$($steps.Count))" -Percent ([int](($completed / $steps.Count) * 100))
+        Write-WinUtilLog -Component "SystemRepair" -Message $step.Label
+        # Start-Process does not throw on a nonzero exit, so without this a failed chkdsk, sfc
+        # or dism run would still be reported as a completed repair
+        $process = Start-Process cmd.exe -ArgumentList $step.Arguments -NoNewWindow -Wait -PassThru
+        $exitCode = $process.ExitCode
+
+        if ($exitCode -ne 0) {
+            if ($step.SuccessCodes.ContainsKey($exitCode)) {
+                # Start-WinUtilJob records WarningRecord output in both the session log and the
+                # job result, so accepted nonzero outcomes cannot finish with a green checkmark.
+                Write-Warning "$($step.Label) finished: $($step.SuccessCodes[$exitCode])."
+            } else {
+                throw "$($step.Label) failed with exit code $exitCode."
+            }
+        }
+
+        $completed++
+    }
+}
+
+function Invoke-WPFTab {
+
+    <#
+
+    .SYNOPSIS
+        Sets the selected tab to the tab that was clicked
+
+    .PARAMETER ClickedTab
+        The name of the tab that was clicked
+
+    .PARAMETER Yield
+        Build the tab's content in slices, letting the interface answer between them. For the
+        tab opened at startup, where the window is already on screen and filling in gradually
+        reads better than holding the thread until it is complete.
+
+    #>
+
+    Param (
+        [Parameter(Mandatory,position=0)]
+        [string]$ClickedTab,
+
+        [switch]$Yield
+    )
+
+    $tabNumber = [int]($ClickedTab -replace "WPFTab","" -replace "BT","") - 1
+
+    Measure-WinUtilStep -Scope "Tab" -Name "$ClickedTab select" -ScriptBlock {
+        $filter = Get-WinUtilVariables -Type ToggleButton | Where-Object {$psitem -like "WPFTab?BT"}
+        $sync.WPFTabNav.Items[$tabNumber].IsSelected = $true
+        ($sync.GetEnumerator()).where{$psitem.Key -in $filter} | ForEach-Object {
+            if ($ClickedTab -ne $PSItem.name) {
+                $sync[$PSItem.Name].IsChecked = $false
+            } else {
+                $sync["$ClickedTab"].IsChecked = $true
+            }
+        }
+        $sync.currentTab = $sync.WPFTabNav.Items[$tabNumber].Header
+    }
+
+    Measure-WinUtilStep -Scope "Tab" -Name "$ClickedTab content" -ScriptBlock {
+        Initialize-WinUtilTabContent -TabName $sync.currentTab -Yield:$Yield
+    }
+
+    Measure-WinUtilStep -Scope "Tab" -Name "$ClickedTab filter reset" -ScriptBlock {
+        $searchText = if ($null -ne $sync.SearchBar) { $sync.SearchBar.Text } else { "" }
+        if ($sync.currentTab -eq "Install") {
+            $selectedCategories = if ($sync.SelectedAppCategories) { $sync.SelectedAppCategories.ToArray() } else { @() }
+            Find-AppsByNameOrDescription -SearchString $searchText -Categories $selectedCategories
+        } elseif ($sync.currentTab -eq "Tweaks" -or $sync.currentTab -eq "AppX") {
+            Find-TweaksByNameOrDescription -SearchString $searchText
+        }
+    }
+
+    Measure-WinUtilStep -Scope "Tab" -Name "$ClickedTab search bar" -ScriptBlock {
+        # Show search bar in Install, Tweaks, and AppX tabs
+        $searchIcon = ($sync.Form.FindName("SearchBar").Parent.Children | Where-Object { $_ -is [System.Windows.Controls.TextBlock] -and $_.Text -eq [char]0xE721 })[0]
+        if ($tabNumber -eq 0 -or $tabNumber -eq 1 -or $tabNumber -eq 5) {
+            $sync.SearchBar.Visibility = "Visible"
+            if ($searchIcon) { $searchIcon.Visibility = "Visible" }
+        } else {
+            $sync.SearchBar.Visibility = "Collapsed"
+            if ($searchIcon) { $searchIcon.Visibility = "Collapsed" }
+            $sync.SearchBarClearButton.Visibility = "Collapsed"
+        }
+    }
+}
+
+function Invoke-WPFToggleAllCategories {
+    <#
+        .SYNOPSIS
+            Expands or collapses all categories in the Install tab
+
+        .PARAMETER Action
+            The action to perform: "Expand" or "Collapse"
+
+        .DESCRIPTION
+            This function iterates through all category containers in the Install tab
+            and expands or collapses their WrapPanels while updating the toggle button labels
+    #>
+
+    param(
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("Expand", "Collapse")]
+        [string]$Action
+    )
+
+    try {
+        if ($null -eq $sync.ItemsControl) {
+            Write-Warning "ItemsControl not initialized"
+            return
+        }
+
+        $targetVisibility = if ($Action -eq "Expand") { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
+        $targetPrefix = if ($Action -eq "Expand") { "-" } else { "+" }
+        $sourcePrefix = if ($Action -eq "Expand") { "+" } else { "-" }
+
+        # Iterate through all items in the ItemsControl
+        $sync.ItemsControl.Items | ForEach-Object {
+            $categoryContainer = $_
+
+            # Check if this is a category container (StackPanel with children)
+            if ($categoryContainer -is [System.Windows.Controls.StackPanel] -and $categoryContainer.Children.Count -ge 2) {
+                # Get the WrapPanel (second child)
+                $wrapPanel = $categoryContainer.Children[1]
+                $wrapPanel.Visibility = $targetVisibility
+
+                # Update the label to show the correct state
+                $categoryLabel = $categoryContainer.Children[0]
+                if ($categoryLabel.Content -like "$sourcePrefix*") {
+                    $escapedSourcePrefix = [regex]::Escape($sourcePrefix)
+                    $categoryLabel.Content = $categoryLabel.Content -replace "^$escapedSourcePrefix ", "$targetPrefix "
+                }
+            }
+        }
+    }
+    catch {
+        Write-Error "Error toggling categories: $_"
+    }
+}
+
+function Invoke-WPFToggleSelections {
+    <#
+
+    .SYNOPSIS
+        Applies every selected toggle
+
+    .DESCRIPTION
+        In the window a toggle applies itself the moment it is switched, so nothing ever had to
+        apply a list of them. An imported configuration carries toggles the same way it carries
+        tweaks, and without this they would be read and then ignored.
+
+    #>
+
+    $toggles = @($sync.selectedToggles)
+
+    if ($toggles.Count -eq 0) {
+        Show-WinUtilMessage -Message "لم تحدد أي مفتاح تبديل." -Title "WinUtil" -Button "OK" -Icon "Warning" | Out-Null
+        return
+    }
+
+    Write-WinUtilLog -Component "Toggles" -Message "Toggles requested: $($toggles.Count) selected."
+
+    Start-WinUtilJob -Name "Toggles" -Description "تطبيق مفاتيح التبديل" -Parameters @{
+        Toggles = $toggles
+    } -ScriptBlock {
+        param($Toggles)
+
+        $total = [Math]::Max(@($Toggles).Count, 1)
+        $completed = 0
+
+        foreach ($toggle in $Toggles) {
+            Step-WinUtilJob -Status "جارٍ تطبيق $toggle ($($completed + 1)/$total)" -Percent ([int](($completed / $total) * 100))
+            Measure-WinUtilStep -Scope "Toggles" -Name $toggle -ScriptBlock {
+                Invoke-WinUtilTweaks $toggle
+            }
+            $completed++
+            Step-WinUtilJob -Percent ([int](($completed / $total) * 100))
+        }
+    }
+}
+
+function Invoke-WPFtweaksbutton {
+  <#
+
+    .SYNOPSIS
+        Invokes the functions associated with each group of checkboxes
+
+  #>
+
+  $Tweaks = $sync.selectedTweaks
+  $dnsProvider = $sync["WPFchangedns"].text
+  if (-not ($dnsProvider)) {
+    $dnsProvider = "Default"
+  }
+
+  if ($Tweaks.count -eq 0 -and $dnsProvider -eq "Default") {
+    Show-WinUtilMessage -Message "يرجى تحديد التحسينات التي تريد تطبيقها." -Title "WinUtil" -Button "OK" -Icon "Warning"
+    return
+  }
+
+  # A restore point is always taken before tweaks run, even when the user did not tick it,
+  # so every change WinUtil makes can be rolled back from Windows System Restore
+  $Tweaks = @($Tweaks)
+  if ($Tweaks.Count -gt 0 -and $Tweaks -notcontains "WPFTweaksRestorePoint") {
+    $Tweaks = @("WPFTweaksRestorePoint") + $Tweaks
+    Write-WinUtilLog -Component "Tweaks" -Message "Restore point added automatically before the selected tweaks."
+  }
+
+  Write-WinUtilLog -Component "Tweaks" -Message "Tweaks requested: $(@($Tweaks).Count) selected tweak(s), DNS provider: $dnsProvider"
+
+  Start-WinUtilJob -Name "Tweaks" -Description "تطبيق التحسينات" -Parameters @{
+    Tweaks = @($Tweaks)
+    DnsProvider = $dnsProvider
+  } -ScriptBlock {
+    param($Tweaks, $DnsProvider)
+
+    # The restore point has to be taken before anything else changes
+    $restorePointTweak = "WPFTweaksRestorePoint"
+    $tweaksToRun = @($Tweaks | Where-Object { $_ -ne $restorePointTweak })
+    $totalSteps = [Math]::Max(@($Tweaks).Count, 1)
+    $completedSteps = 0
+
+    # Measured before anything changes, for the before/after summary at the end
+    $snapshotBefore = Get-WinUtilSystemSnapshot
+
+    if ($Tweaks -contains $restorePointTweak) {
+      Step-WinUtilJob -Status "جارٍ إنشاء نقطة استعادة" -Percent 0
+      Write-WinUtilLog -Component "Tweaks" -Message "Creating restore point before applying selected tweaks."
+      Measure-WinUtilStep -Scope "Tweaks" -Name $restorePointTweak -ScriptBlock {
+        Invoke-WinUtilTweaks $restorePointTweak
+      }
+      $completedSteps = 1
+    }
+
+    if ($DnsProvider -ne "Default") {
+      $dnsResult = Measure-WinUtilStep -Scope "Tweaks" -Name "Set DNS to $DnsProvider" -ScriptBlock {
+        @(Set-WinUtilDNS -DNSProvider $DnsProvider)
+      }
+
+      # Carrying on after the DNS change failed leaves the machine half configured, so the run
+      # ends here and the job layer reports it
+      if (@($dnsResult)[-1] -ne $true) {
+        throw "The DNS change to $DnsProvider failed, so the remaining tweaks were not applied."
+      }
+    }
+
+    foreach ($tweak in $tweaksToRun) {
+      Step-WinUtilJob -Status "جارٍ تطبيق $tweak ($($completedSteps + 1)/$totalSteps)" -Percent ([int](($completedSteps / $totalSteps) * 100))
+      Measure-WinUtilStep -Scope "Tweaks" -Name $tweak -ScriptBlock {
+        Invoke-WinUtilTweaks $tweak
+      }
+      $completedSteps++
+      Step-WinUtilJob -Percent ([int](($completedSteps / $totalSteps) * 100))
+    }
+
+    if (@($Tweaks).Count -gt 0) {
+      $report = Format-WinUtilTweakReport -Before $snapshotBefore -After (Get-WinUtilSystemSnapshot) -Applied @($Tweaks).Count
+      Show-WinUtilMessage -Message $report -Title "نتيجة التحسينات" -Button "OK" -Icon "Information" | Out-Null
+    }
+  }
+}
+
+function Invoke-WPFUIElements {
+    <#
+    .SYNOPSIS
+        Adds UI elements to a specified Grid in the WinUtil GUI based on a JSON configuration.
+    .PARAMETER configVariable
+        The variable/link containing the JSON configuration.
+    .PARAMETER targetGridName
+        The name of the grid to which the UI elements should be added.
+    .PARAMETER columncount
+        The number of columns to be used in the Grid. If not provided, a default value is used based on the panel.
+    .EXAMPLE
+        Invoke-WPFUIElements -configVariable $sync.configs.applications -targetGridName "install" -columncount 5
+    .NOTES
+        Future me/contributor: If possible, please wrap this into a runspace to make it load all panels at the same time.
+    #>
+
+    param(
+        [Parameter(Mandatory, Position = 0)]
+        [PSCustomObject]$configVariable,
+
+        [Parameter(Mandatory, Position = 1)]
+        [string]$targetGridName,
+
+        [Parameter(Mandatory, Position = 2)]
+        [int]$columncount,
+
+        # Let the interface answer between batches of entries. Only for content nobody is
+        # waiting on: a user who just clicked the tab is better served by finishing at once.
+        [switch]$Yield
+    )
+
+    $window = $sync.form
+
+    $borderstyle = $window.FindResource("BorderStyle")
+    $HoverTextBlockStyle = $window.FindResource("HoverTextBlockStyle")
+    $ColorfulToggleSwitchStyle = $window.FindResource("ColorfulToggleSwitchStyle")
+    $ToggleButtonStyle = $window.FindResource("ToggleButtonStyle")
+
+    if (!$borderstyle -or !$HoverTextBlockStyle -or !$ColorfulToggleSwitchStyle) {
+        throw "Failed to retrieve Styles using 'FindResource' from main window element."
+    }
+
+    $targetGrid = $window.FindName($targetGridName)
+
+    if (!$targetGrid) {
+        throw "Failed to retrieve Target Grid by name, provided name: $targetGrid"
+    }
+
+    # Clear existing ColumnDefinitions and Children
+    $targetGrid.ColumnDefinitions.Clear() | Out-Null
+    $targetGrid.Children.Clear() | Out-Null
+
+    # Add ColumnDefinitions to the target Grid
+    for ($i = 0; $i -lt $columncount; $i++) {
+        $colDef = New-Object Windows.Controls.ColumnDefinition
+        $colDef.Width = New-Object System.Windows.GridLength([double]1, [System.Windows.GridUnitType]::Star)
+        $targetGrid.ColumnDefinitions.Add($colDef) | Out-Null
+    }
+
+    # Convert PSCustomObject to Hashtable
+    $configHashtable = @{}
+    $configVariable.PSObject.Properties.Name | ForEach-Object {
+        $configHashtable[$_] = $configVariable.$_
+    }
+
+    $radioButtonGroups = @{}
+
+    $organizedData = @{}
+    # Iterate through JSON data and organize by panel and category
+    foreach ($entry in $configHashtable.Keys) {
+        $entryInfo = $configHashtable[$entry]
+
+        # Create an object for the application
+        $entryObject = [PSCustomObject]@{
+            Name        = $entry
+            Category    = $entryInfo.Category
+            Content     = $entryInfo.Content
+            Panel       = if ($entryInfo.Panel) { $entryInfo.Panel } else { "0" }
+            Link        = $entryInfo.link
+            Description = $entryInfo.description
+            Type        = $entryInfo.type
+            ComboItems  = $entryInfo.ComboItems
+            ComboDescriptions = $entryInfo.ComboDescriptions
+            Registry    = $entryInfo.registry
+            Checked     = $entryInfo.Checked
+            ButtonWidth = $entryInfo.ButtonWidth
+            GroupName   = $entryInfo.GroupName  # Added for RadioButton groupings
+        }
+
+        if (-not $organizedData.ContainsKey($entryObject.Panel)) {
+            $organizedData[$entryObject.Panel] = @{}
+        }
+
+        if (-not $organizedData[$entryObject.Panel].ContainsKey($entryObject.Category)) {
+            $organizedData[$entryObject.Panel][$entryObject.Category] = @()
+        }
+
+        # Store application data in an array under the category
+        $organizedData[$entryObject.Panel][$entryObject.Category] += $entryObject
+
+    }
+
+    # Initialize panel count
+    $panelcount = 0
+
+    # Category headers that start collapsed (the advanced tweaks); folded once the panel is built
+    $collapsibleHeaders = [System.Collections.Generic.List[object]]::new()
+
+    # Iterate through 'organizedData' by panel, category, and application
+    $yieldClock = [System.Diagnostics.Stopwatch]::StartNew()
+    foreach ($panelKey in ($organizedData.Keys | Sort-Object)) {
+        # Create a Border for each column
+        $border = New-Object Windows.Controls.Border
+        $border.VerticalAlignment = "Stretch"
+        [System.Windows.Controls.Grid]::SetColumn($border, $panelcount)
+        $border.style = $borderstyle
+        $targetGrid.Children.Add($border) | Out-Null
+
+        # Use a DockPanel to contain the content
+        $dockPanelContainer = New-Object Windows.Controls.DockPanel
+        $border.Child = $dockPanelContainer
+
+        # Create a StackPanel for application content controls
+        $stackPanelContainer = New-Object Windows.Controls.StackPanel
+        $stackPanelContainer.HorizontalAlignment = 'Stretch'
+        $stackPanelContainer.VerticalAlignment = 'Stretch'
+
+        # Check if the target grid (or any ancestor) is already inside a ScrollViewer
+        $hasOuterScrollViewer = $false
+        $currentElement = $targetGrid
+        while ($null -ne $currentElement) {
+            if ($currentElement -is [System.Windows.Controls.ScrollViewer] -or $currentElement.GetType().Name -eq "ScrollViewer") {
+                $hasOuterScrollViewer = $true
+                break
+            }
+            $currentElement = $currentElement.Parent
+        }
+
+        if ($hasOuterScrollViewer) {
+            # Add StackPanel directly to DockPanel without nesting a ScrollViewer
+            [Windows.Controls.DockPanel]::SetDock($stackPanelContainer, [Windows.Controls.Dock]::Bottom)
+            $dockPanelContainer.Children.Add($stackPanelContainer) | Out-Null
+        }
+        else {
+            # Create a ScrollViewer for targets that do not already have an outer ScrollViewer
+            $scrollViewer = New-Object Windows.Controls.ScrollViewer
+            $scrollViewer.VerticalScrollBarVisibility = "Auto"
+            $scrollViewer.HorizontalScrollBarVisibility = "Disabled"
+            $scrollViewer.HorizontalAlignment = 'Stretch'
+            $scrollViewer.VerticalAlignment = 'Stretch'
+            $scrollViewer.Content = $stackPanelContainer
+
+            [Windows.Controls.DockPanel]::SetDock($scrollViewer, [Windows.Controls.Dock]::Bottom)
+            $dockPanelContainer.Children.Add($scrollViewer) | Out-Null
+        }
+        $panelcount++
+
+        # Now proceed with adding category labels and entries to $stackPanelContainer
+        foreach ($category in ($organizedData[$panelKey].Keys | Sort-Object)) {
+
+            $label = New-Object Windows.Controls.Label
+            $categoryCleanName = Get-WinUtilCategoryDisplayName -Category $category
+            $label.Content = $categoryCleanName
+
+            # Tweaks categories get a risk badge beside the header (آمن، متقدم — انتبه…)
+            $categoryRisk = Get-WinUtilCategoryRisk -Category $category
+            if ($null -ne $categoryRisk) {
+                $riskColor = [Windows.Media.ColorConverter]::ConvertFromString($categoryRisk.Color)
+
+                $riskText = New-Object Windows.Controls.TextBlock
+                $riskText.Text = $categoryRisk.Text
+                $riskText.FontSize = 11
+                $riskText.FontWeight = [Windows.FontWeights]::SemiBold
+                $riskText.Foreground = New-Object Windows.Media.SolidColorBrush($riskColor)
+
+                $riskBadge = New-Object Windows.Controls.Border
+                $riskBadge.CornerRadius = New-Object Windows.CornerRadius(8)
+                $riskBadge.Padding = New-Object Windows.Thickness(8, 1, 8, 2)
+                $riskBadge.Margin = New-Object Windows.Thickness(10, 0, 0, 0)
+                $riskBadge.VerticalAlignment = "Center"
+                $riskBadge.Background = New-Object Windows.Media.SolidColorBrush(
+                    [Windows.Media.Color]::FromArgb(38, $riskColor.R, $riskColor.G, $riskColor.B))
+                $riskBadge.Child = $riskText
+
+                $headerName = New-Object Windows.Controls.TextBlock
+                $headerName.Text = $categoryCleanName
+                $headerName.VerticalAlignment = "Center"
+
+                $headerPanel = New-Object Windows.Controls.StackPanel
+                $headerPanel.Orientation = "Horizontal"
+                $headerPanel.Children.Add($headerName) | Out-Null
+                $headerPanel.Children.Add($riskBadge) | Out-Null
+                $label.Content = $headerPanel
+                $label.ToolTip = $categoryRisk.Text
+
+                # The advanced tweaks start folded so a beginner does not tick them by accident
+                if ($category -eq "z__Advanced Tweaks - CAUTION") {
+                    $foldArrow = New-Object Windows.Controls.TextBlock
+                    $foldArrow.FontSize = 11
+                    $foldArrow.Margin = New-Object Windows.Thickness(10, 0, 0, 0)
+                    $foldArrow.VerticalAlignment = "Center"
+                    $foldArrow.Opacity = 0.75
+                    $headerPanel.Children.Add($foldArrow) | Out-Null
+
+                    $label.Tag = @{ Collapsed = $true; Arrow = $foldArrow }
+                    $label.Cursor = [Windows.Input.Cursors]::Hand
+                    $label.ToolTip = "$($categoryRisk.Text) — اضغط للعرض أو الإخفاء"
+                    $label.Add_MouseLeftButtonUp({
+                        param($header)
+                        Set-WinUtilCategoryCollapsed -Label $header -Collapsed (-not $header.Tag.Collapsed)
+                    })
+                    $label.Add_KeyUp({
+                        param($header, $keyArgs)
+                        if ($keyArgs.Key -eq [Windows.Input.Key]::Enter -or $keyArgs.Key -eq [Windows.Input.Key]::Space) {
+                            Set-WinUtilCategoryCollapsed -Label $header -Collapsed (-not $header.Tag.Collapsed)
+                        }
+                    })
+                    $collapsibleHeaders.Add($label)
+                }
+            }
+            $label.Focusable = $true
+            $label.IsTabStop = $true
+            [System.Windows.Automation.AutomationProperties]::SetName($label, $categoryCleanName)
+            $label.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "HeaderFontSize")
+            $label.SetResourceReference([Windows.Controls.Control]::FontFamilyProperty, "HeaderFontFamily")
+            $label.UseLayoutRounding = $true
+            $stackPanelContainer.Children.Add($label) | Out-Null
+            $sync[$category] = $label
+
+            # Sort entries by type (checkboxes first, then buttons, then comboboxes, notes last) and then alphabetically by Content
+            $entries = $organizedData[$panelKey][$category] | Sort-Object @{Expression = {
+                switch ($_.Type) {
+                    'Button' { 1 }
+                    'Combobox' { 2 }
+                    'Note' { 3 }
+                    default { 0 }
+                }
+            }}, Content
+            foreach ($entryInfo in $entries) {
+
+                # Constructing a panel's worth of controls in one go holds the interface for
+                # hundreds of milliseconds. Draining the queue on a deadline rather than every
+                # nth entry keeps the wait bounded whatever the entries cost to build.
+                if ($Yield -and $yieldClock.ElapsedMilliseconds -ge 25 -and (Test-WinUtilUIAlive)) {
+                    $yieldClock.Restart()
+                    $frame = New-Object Windows.Threading.DispatcherFrame
+                    $null = $sync.Form.Dispatcher.BeginInvoke(
+                        [Windows.Threading.DispatcherPriority]::Background,
+                        [Windows.Threading.DispatcherOperationCallback]{
+                            param($dispatcherFrame)
+                            $dispatcherFrame.Continue = $false
+                            return $null
+                        },
+                        $frame)
+                    [Windows.Threading.Dispatcher]::PushFrame($frame)
+                }
+
+                # Create the UI elements based on the entry type
+                switch ($entryInfo.Type) {
+                    "Toggle" {
+                        $dockPanel = New-Object Windows.Controls.DockPanel
+                        [System.Windows.Automation.AutomationProperties]::SetName($dockPanel, $entryInfo.Content)
+                        $checkBox = New-Object Windows.Controls.CheckBox
+                        $checkBox.Name = $entryInfo.Name
+                        $checkBox.HorizontalAlignment = "Right"
+                        $checkBox.UseLayoutRounding = $true
+                        [System.Windows.Automation.AutomationProperties]::SetName($checkBox, $entryInfo.Content)
+                        $dockPanel.Children.Add($checkBox) | Out-Null
+                        $checkBox.Style = $ColorfulToggleSwitchStyle
+
+                        $label = New-Object Windows.Controls.Label
+                        $label.Content = $entryInfo.Content
+                        $label.ToolTip = $entryInfo.Description
+                        $label.HorizontalAlignment = "Left"
+                        $label.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "FontSize")
+                        $label.SetResourceReference([Windows.Controls.Control]::ForegroundProperty, "MainForegroundColor")
+                        $label.UseLayoutRounding = $true
+                        $dockPanel.Children.Add($label) | Out-Null
+                        $stackPanelContainer.Children.Add($dockPanel) | Out-Null
+
+                        $sync[$entryInfo.Name] = $checkBox
+                        $sync[$entryInfo.Name].IsChecked = (Get-WinUtilToggleStatus $entryInfo.Name)
+
+                        $sync[$entryInfo.Name].Add_Checked({
+                            [System.Object]$Sender = $args[0]
+                            Invoke-WPFSelectedCheckboxesUpdate -type "Add" -checkboxName $Sender.name
+                            # Skip applying tweaks while an import is restoring toggle states
+                            if (-not $sync.ImportInProgress) {
+                                Invoke-WinUtilTweaks $Sender.name
+                            }
+                        })
+
+                        $sync[$entryInfo.Name].Add_Unchecked({
+                            [System.Object]$Sender = $args[0]
+                            Invoke-WPFSelectedCheckboxesUpdate -type "Remove" -checkboxName $Sender.name
+                            # Skip undoing tweaks while an import is restoring toggle states
+                            if (-not $sync.ImportInProgress) {
+                                Invoke-WinUtiltweaks $Sender.name -undo $true
+                            }
+                        })
+                    }
+
+                    "ToggleButton" {
+                        $toggleButton = New-Object Windows.Controls.Primitives.ToggleButton
+                        $toggleButton.Name = $entryInfo.Name
+                        $toggleButton.Content = $entryInfo.Content[1]
+                        $toggleButton.ToolTip = Get-WinUtilEntryToolTip -Description $entryInfo.Description -Key $entryInfo.Name
+                        $toggleButton.HorizontalAlignment = "Left"
+                        $toggleButton.Style = $ToggleButtonStyle
+                        [System.Windows.Automation.AutomationProperties]::SetName($toggleButton, $entryInfo.Content[0])
+
+                        $toggleButton.Tag = @{
+                            contentOn = if ($entryInfo.Content.Count -ge 1) { $entryInfo.Content[0] } else { "" }
+                            contentOff = if ($entryInfo.Content.Count -ge 2) { $entryInfo.Content[1] } else { $contentOn }
+                        }
+
+                        $stackPanelContainer.Children.Add($toggleButton) | Out-Null
+
+                        $sync[$entryInfo.Name] = $toggleButton
+
+                        $sync[$entryInfo.Name].Add_Checked({
+                            $this.Content = $this.Tag.contentOn
+                        })
+
+                        $sync[$entryInfo.Name].Add_Unchecked({
+                            $this.Content = $this.Tag.contentOff
+                        })
+
+                        if ($null -eq $sync.Buttons) {
+                            $sync.Buttons = [System.Collections.Generic.List[PSObject]]::new()
+                        }
+
+                        if ($sync.Buttons -notcontains $toggleButton.Name) {
+                            $toggleButton.Add_Click({
+                                [System.Object]$Sender = $args[0]
+                                Invoke-WPFButton $Sender.name
+                            })
+                            $sync.Buttons.Add($toggleButton.Name) | Out-Null
+                        }
+                    }
+
+                    "Combobox" {
+                        $horizontalStackPanel = New-Object Windows.Controls.StackPanel
+                        $horizontalStackPanel.Orientation = "Horizontal"
+                        $horizontalStackPanel.Margin = "0,5,0,0"
+                        [System.Windows.Automation.AutomationProperties]::SetName($horizontalStackPanel, $entryInfo.Content)
+
+                        $label = New-Object Windows.Controls.Label
+                        $label.Content = $entryInfo.Content
+                        $label.HorizontalAlignment = "Left"
+                        $label.ToolTip = $entryInfo.Description
+                        $label.VerticalAlignment = "Center"
+                        $label.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "ButtonFontSize")
+                        $label.UseLayoutRounding = $true
+                        $horizontalStackPanel.Children.Add($label) | Out-Null
+
+                        $comboBox = New-Object Windows.Controls.ComboBox
+                        $comboBox.Name = $entryInfo.Name
+                        $comboBox.SetResourceReference([Windows.Controls.Control]::HeightProperty, "ButtonHeight")
+                        $comboBox.SetResourceReference([Windows.Controls.Control]::WidthProperty, "ButtonWidth")
+                        $comboBox.HorizontalAlignment = "Left"
+                        $comboBox.VerticalAlignment = "Center"
+                        $comboBox.SetResourceReference([Windows.Controls.Control]::MarginProperty, "ButtonMargin")
+                        $comboBox.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "ButtonFontSize")
+                        $comboBox.UseLayoutRounding = $true
+                        $comboBox.Tag = [pscustomobject]@{
+                            Registry = $entryInfo.Registry
+                            State = $null
+                        }
+                        [System.Windows.Automation.AutomationProperties]::SetName($comboBox, $entryInfo.Content)
+
+                        $comboItems = if ($entryInfo.ComboItems -is [string]) {
+                            if ($entryInfo.ComboItems.Contains("|")) {
+                                $entryInfo.ComboItems -split "\|"
+                            } else {
+                                $entryInfo.ComboItems -split " "
+                            }
+                        } else {
+                            @($entryInfo.ComboItems)
+                        }
+
+                        foreach ($comboitem in $comboItems) {
+                            $comboBoxItem = New-Object Windows.Controls.ComboBoxItem
+                            $comboBoxItem.Content = $comboitem
+                            if ($entryInfo.ComboDescriptions) {
+                                $comboDescription = $entryInfo.ComboDescriptions.PSObject.Properties[$comboitem].Value
+                                if ($comboDescription) {
+                                    $comboBoxItem.ToolTip = $comboDescription
+                                }
+                            }
+                            $comboBoxItem.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "ButtonFontSize")
+                            $comboBoxItem.UseLayoutRounding = $true
+                            $comboBox.Items.Add($comboBoxItem) | Out-Null
+                        }
+
+                        $horizontalStackPanel.Children.Add($comboBox) | Out-Null
+                        $stackPanelContainer.Children.Add($horizontalStackPanel) | Out-Null
+
+                        if ($entryInfo.Registry -and @($entryInfo.Registry)[0].Values) {
+                            try {
+                                $comboBox.Tag.State = Get-WinUtilRegistryComboState -Registry $entryInfo.Registry
+                                $comboBox.SelectedIndex = @($comboBox.Items.Content).IndexOf([string]$comboBox.Tag.State)
+                            } catch {
+                                $unknownStateItem = New-Object Windows.Controls.ComboBoxItem
+                                $unknownStateItem.Content = "مخصص / غير معروف - اختر حالة"
+                                $unknownStateItem.IsEnabled = $false
+                                $unknownStateItem.ToolTip = "$($_.Exception.Message) اختر إحدى الحالات المدعومة لاستبدال هذه القيم."
+                                $comboBox.Items.Add($unknownStateItem) | Out-Null
+                                $comboBox.SelectedItem = $unknownStateItem
+                                $comboBox.ToolTip = $unknownStateItem.ToolTip
+                            }
+                        } else {
+                            $comboBox.SelectedIndex = 0
+                        }
+
+                        # Set initial text
+                        if ($comboBox.Items.Count -gt 0) {
+                            $comboBox.Text = $comboBox.SelectedItem.Content
+                        }
+
+                        $sync[$entryInfo.Name] = $comboBox
+
+                        # Add SelectionChanged event handler to update the text property
+                        $comboBox.Add_SelectionChanged({
+                            $selectedItem = $this.SelectedItem
+                            if ($selectedItem) {
+                                $this.Text = $selectedItem.Content
+                                $registry = $this.Tag.Registry
+                                if ($registry -and $selectedItem.IsEnabled -and $selectedItem.Content -ne $this.Tag.State) {
+                                    try {
+                                        Set-WinUtilRegistryComboState -Registry $registry -State $selectedItem.Content
+                                        $this.Tag.State = $selectedItem.Content
+                                        $this.ToolTip = $null
+                                        $unknownStateItem = @($this.Items) | Where-Object Content -EQ "مخصص / غير معروف - اختر حالة" | Select-Object -First 1
+                                        if ($unknownStateItem) {
+                                            $this.Items.Remove($unknownStateItem)
+                                        }
+                                    } catch {
+                                        $applyError = $_.Exception.Message
+                                        if ([string]::IsNullOrWhiteSpace($applyError)) {
+                                            $applyError = "تعذّر تطبيق حالة السجل '$($selectedItem.Content)'."
+                                        }
+                                        $previousState = if ($this.Tag.State) { $this.Tag.State } else { "مخصص / غير معروف - اختر حالة" }
+                                        $this.SelectedItem = @($this.Items) | Where-Object Content -EQ $previousState | Select-Object -First 1
+                                        [System.Windows.MessageBox]::Show(
+                                            $applyError,
+                                            "WinUtil",
+                                            [System.Windows.MessageBoxButton]::OK,
+                                            [System.Windows.MessageBoxImage]::Warning
+                                        ) | Out-Null
+                                    }
+                                }
+                            }
+                        })
+
+                        if ($entryInfo.Registry -and @($entryInfo.Registry)[0].Values -and $entryInfo.Link) {
+                            $textBlock = New-Object Windows.Controls.TextBlock
+                            $textBlock.Name = $comboBox.Name + "Link"
+                            $textBlock.Text = "(?)"
+                            $textBlock.ToolTip = $entryInfo.Link
+                            $textBlock.Style = $HoverTextBlockStyle
+                            $textBlock.UseLayoutRounding = $true
+                            $textBlock.VerticalAlignment = "Center"
+                            $textBlock.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "FontSize")
+                            $textBlock.Tag = $comboBox
+
+                            $textBlock.Add_MouseUp({
+                                [System.Object]$Sender = $args[0]
+                                Start-Process $Sender.ToolTip -ErrorAction Stop
+                            })
+
+                            $horizontalStackPanel.Children.Add($textBlock) | Out-Null
+                            $sync[$textBlock.Name] = $textBlock
+                        }
+                    }
+
+                    "Button" {
+                        $button = New-Object Windows.Controls.Button
+                        $button.Name = $entryInfo.Name
+                        $button.Content = $entryInfo.Content
+                        $button.HorizontalAlignment = "Left"
+                        $button.SetResourceReference([Windows.Controls.Control]::MarginProperty, "ButtonMargin")
+                        $button.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "ButtonFontSize")
+                        if ($entryInfo.ButtonWidth) {
+                            $baseWidth = [int]$entryInfo.ButtonWidth
+                            $button.Width = [math]::Max($baseWidth, 350)
+                        }
+                        [System.Windows.Automation.AutomationProperties]::SetName($button, $entryInfo.Content)
+                        $stackPanelContainer.Children.Add($button) | Out-Null
+
+                        $sync[$entryInfo.Name] = $button
+
+                        if ($null -eq $sync.Buttons) {
+                            $sync.Buttons = [System.Collections.Generic.List[PSObject]]::new()
+                        }
+
+                        if ($sync.Buttons -notcontains $button.Name) {
+                            $button.Add_Click({
+                                [System.Object]$Sender = $args[0]
+                                Invoke-WPFButton $Sender.name
+                            })
+                            $sync.Buttons.Add($button.Name) | Out-Null
+                        }
+                    }
+
+                    "RadioButton" {
+                        # Check if a container for this GroupName already exists
+                        if (-not $radioButtonGroups.ContainsKey($entryInfo.GroupName)) {
+                            # Create a StackPanel for this group
+                            $groupStackPanel = New-Object Windows.Controls.StackPanel
+                            $groupStackPanel.Orientation = "Vertical"
+                            [System.Windows.Automation.AutomationProperties]::SetName($groupStackPanel, $entryInfo.GroupName)
+                            $radioButtonGroups[$entryInfo.GroupName] = $groupStackPanel
+
+                            # Add the group container to the ItemsControl
+                            $stackPanelContainer.Children.Add($groupStackPanel) | Out-Null
+                        }
+                        else {
+                            # Retrieve the existing group container
+                            $groupStackPanel = $radioButtonGroups[$entryInfo.GroupName]
+                        }
+
+                        # Create the RadioButton
+                        $radioButton = New-Object Windows.Controls.RadioButton
+                        $radioButton.Name = $entryInfo.Name
+                        $radioButton.GroupName = $entryInfo.GroupName
+                        $radioButton.Content = $entryInfo.Content
+                        $radioButton.HorizontalAlignment = "Left"
+                        $radioButton.SetResourceReference([Windows.Controls.Control]::MarginProperty, "CheckBoxMargin")
+                        $radioButton.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "ButtonFontSize")
+                        $radioButton.ToolTip = $entryInfo.Description
+                        $radioButton.UseLayoutRounding = $true
+                        [System.Windows.Automation.AutomationProperties]::SetName($radioButton, $entryInfo.Content)
+
+                        if ($entryInfo.Checked -eq $true) {
+                            $radioButton.IsChecked = $true
+                        }
+
+                        # Add the RadioButton to the group container
+                        $groupStackPanel.Children.Add($radioButton) | Out-Null
+                        $sync[$entryInfo.Name] = $radioButton
+                    }
+
+                    "Note" {
+                        $textBlock = New-Object Windows.Controls.TextBlock
+                        $textBlock.TextWrapping = "Wrap"
+                        $textBlock.Margin = "5,5,5,5"
+                        $textBlock.UseLayoutRounding = $true
+
+                        $bulletBadge = [Windows.Documents.InlineUIContainer]::new((New-WinUtilFossBadge -Size 18 -Round))
+                        $bulletBadge.BaselineAlignment = [Windows.BaselineAlignment]::Center
+
+                        $textRun = New-Object Windows.Documents.Run
+                        $textRun.Text = " $($entryInfo.Content)"
+                        $textRun.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "FontSize")
+                        $textRun.Foreground = [Windows.Media.SolidColorBrush]::new([Windows.Media.Color]::FromRgb(19, 143, 83))
+
+                        $textBlock.Inlines.Add($bulletBadge)
+                        $textBlock.Inlines.Add($textRun)
+
+                        $stackPanelContainer.Children.Add($textBlock) | Out-Null
+                    }
+
+                    default {
+                        $horizontalStackPanel = New-Object Windows.Controls.StackPanel
+                        $horizontalStackPanel.Orientation = "Horizontal"
+                        [System.Windows.Automation.AutomationProperties]::SetName($horizontalStackPanel, $entryInfo.Content)
+
+                        $checkBox = New-Object Windows.Controls.CheckBox
+                        $checkBox.Name = $entryInfo.Name
+                        $checkBox.Content = $entryInfo.Content
+                        $checkBox.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "FontSize")
+                        $checkBox.ToolTip = Get-WinUtilEntryToolTip -Description $entryInfo.Description -Key $entryInfo.Name
+                        $checkBox.SetResourceReference([Windows.Controls.Control]::MarginProperty, "CheckBoxMargin")
+                        $checkBox.UseLayoutRounding = $true
+                        [System.Windows.Automation.AutomationProperties]::SetName($checkBox, $entryInfo.Content)
+                        if ($entryInfo.Checked -eq $true) {
+                            $checkBox.IsChecked = $entryInfo.Checked
+                        }
+                        $horizontalStackPanel.Children.Add($checkBox) | Out-Null
+
+                        if ($entryInfo.Link) {
+                            $textBlock = New-Object Windows.Controls.TextBlock
+                            $textBlock.Name = $checkBox.Name + "Link"
+                            $textBlock.Text = "(?)"
+                            $textBlock.ToolTip = $entryInfo.Link
+                            $textBlock.Style = $HoverTextBlockStyle
+                            $textBlock.UseLayoutRounding = $true
+
+                            $textBlock.VerticalAlignment = "Center"
+                            $textBlock.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "FontSize")
+                            $textBlock.Tag = $checkBox
+
+                            $textBlock.Add_MouseUp({
+                                [System.Object]$Sender = $args[0]
+                                Start-Process $Sender.ToolTip -ErrorAction Stop
+                            })
+
+                            $updateLinkMargin = {
+                                [System.Object]$Sender = $args[0]
+                                $linkedCheckBox = $Sender.Tag
+                                $MarginTopBase = if ($linkedCheckBox) { $linkedCheckBox.Margin.Top } else { 0 }
+                                $Sender.Margin = New-Object Windows.Thickness(
+                                    [math]::Round($Sender.FontSize * 0.5),
+                                    ($MarginTopBase - [math]::Round($Sender.FontSize / 2)),
+                                    0, 0
+                                )
+                            }
+                            $textBlock.Add_Loaded($updateLinkMargin)
+                            $fontSizeDescriptor = [System.ComponentModel.DependencyPropertyDescriptor]::FromProperty(
+                                [Windows.Controls.Control]::FontSizeProperty,
+                                [Windows.Controls.TextBlock]
+                            )
+                            $fontSizeDescriptor.AddValueChanged($textBlock, $updateLinkMargin)
+
+                            $horizontalStackPanel.Children.Add($textBlock) | Out-Null
+
+                            $sync[$textBlock.Name] = $textBlock
+                        }
+
+                        $stackPanelContainer.Children.Add($horizontalStackPanel) | Out-Null
+                        $sync[$entryInfo.Name] = $checkBox
+
+                        $sync[$entryInfo.Name].Add_Checked({
+                            [System.Object]$Sender = $args[0]
+                            Invoke-WPFSelectedCheckboxesUpdate -type "Add" -checkboxName $Sender.name
+                        })
+
+                        $sync[$entryInfo.Name].Add_Unchecked({
+                            [System.Object]$Sender = $args[0]
+                            Invoke-WPFSelectedCheckboxesUpdate -type "Remove" -checkboxName $Sender.name
+                        })
+                    }
+                }
+            }
+        }
+    }
+
+    foreach ($header in $collapsibleHeaders) {
+        Set-WinUtilCategoryCollapsed -Label $header -Collapsed $header.Tag.Collapsed -ExpandIfSelected
+        # Presets look these up to open a folded category they select into
+        $sync.CollapsibleTweakHeaders = @(@($sync.CollapsibleTweakHeaders) + $header | Where-Object { $null -ne $_ })
+    }
+
+    # A search event can run inside one of the yielded dispatcher frames above. Controls added
+    # after that event start visible, so reapply the live filter once this tab is complete.
+    $filterPanel = switch ($sync.currentTab) {
+        "Tweaks" { "tweakspanel" }
+        "AppX" { "appxpanel" }
+    }
+    if ($filterPanel -eq $targetGridName -and $null -ne $sync.SearchBar) {
+        Find-TweaksByNameOrDescription -SearchString $sync.SearchBar.Text
+    }
+}
+
+function Test-WinUtilUIAlive {
+    <#
+        .SYNOPSIS
+            Whether there is a window that can still be posted to
+
+        .DESCRIPTION
+            False for a headless run, and for a window closed over running work: a shut down
+            dispatcher accepts posts and discards them.
+    #>
+
+    return $null -ne $sync.Form -and $null -ne $sync.Form.Dispatcher -and -not $sync.Form.Dispatcher.HasShutdownStarted
+}
+
+function Test-WinUtilDispatcherShutdownException {
+    param([System.Exception]$Exception)
+
+    while ($null -ne $Exception) {
+        if ($Exception -is [System.OperationCanceledException] -or
+            $Exception -is [System.InvalidOperationException]) {
+            return $true
+        }
+        $Exception = $Exception.InnerException
+    }
+
+    return $false
+}
+
+function Invoke-WPFUIThread {
+    <#
+        .SYNOPSIS
+            Runs a scriptblock on the interface thread
+
+        .DESCRIPTION
+            Controls may only be touched from the thread that owns the window.
+
+            The body is handed over as text and rebuilt in the interface runspace rather than
+            marshalled as a scriptblock: a scriptblock keeps the session state it was written in,
+            and running one across runspaces costs roughly twenty times as much per command. So
+            values come in through Parameters rather than captured from the caller's scope.
+
+            A no-op once the window is gone, so a job outliving the interface finishes quietly.
+
+        .PARAMETER ScriptBlock
+            The work to run on the interface thread. Declare a param block for anything it needs.
+
+        .PARAMETER Parameters
+            Values passed to the body by name.
+
+        .PARAMETER Async
+            Post and return instead of waiting. For progress and log updates, which must never
+            stall the caller.
+
+        .PARAMETER PassThru
+            Return what the body produced. Off by default so a caller that only wanted a control
+            updated gets no stray output.
+    #>
+    param(
+        [Parameter(Mandatory, Position = 0)]
+        [scriptblock]$ScriptBlock,
+
+        [hashtable]$Parameters = @{},
+
+        [switch]$Async,
+
+        [switch]$PassThru
+    )
+
+    if (-not (Test-WinUtilUIAlive)) {
+        return
+    }
+    $dispatcher = $sync.Form.Dispatcher
+
+    if (-not $Async -and $dispatcher.CheckAccess()) {
+        $inlineResult = & $ScriptBlock @Parameters
+        if ($PassThru) { return $inlineResult }
+        return
+    }
+
+    $executor = $sync.UIDispatchDelegate
+    if ($null -eq $executor) {
+        # No interface runspace to hand the work to, so the block itself is marshalled. It has to
+        # receive its parameters and return what it produced, and [action] carries neither.
+        if ($Async) {
+            # The values travel as the dispatcher's argument, since this call returns before the
+            # block runs and anything captured from here would be gone by then
+            try {
+                $null = $dispatcher.BeginInvoke(
+                    [Windows.Threading.DispatcherPriority]::Background,
+                    [System.Windows.Threading.DispatcherOperationCallback]{
+                        param($Work)
+                        $body = $Work.Body
+                        $arguments = $Work.Parameters
+                        if ($arguments -and $arguments.Count -gt 0) {
+                            $null = & $body @arguments
+                        } else {
+                            $null = & $body
+                        }
+                        return $null
+                    },
+                    @{ Body = $ScriptBlock; Parameters = $Parameters })
+            } catch {
+                $shutdownFailure = Test-WinUtilDispatcherShutdownException -Exception $_.Exception
+                if ($shutdownFailure -and -not (Test-WinUtilUIAlive)) { return }
+                throw
+            }
+            return
+        }
+
+        # Synchronous, so this frame is still alive while the block runs and can be captured from
+        try {
+            $fallbackResult = $dispatcher.Invoke([System.Func[object]]{ & $ScriptBlock @Parameters })
+        } catch {
+            $shutdownFailure = Test-WinUtilDispatcherShutdownException -Exception $_.Exception
+            if ($shutdownFailure -and -not (Test-WinUtilUIAlive)) { return }
+            throw
+        }
+        if ($PassThru) { return $fallbackResult }
+        return
+    }
+
+    $work = @{
+        Body = $ScriptBlock.ToString()
+        Parameters = $Parameters
+        # A synchronous caller is waiting for a required UI handoff and must see its failure.
+        # Fire-and-forget posts have nobody to receive an exception, so the delegate only logs it.
+        PropagateErrors = -not $Async
+    }
+
+    if ($Async) {
+        try {
+            $null = $dispatcher.BeginInvoke([Windows.Threading.DispatcherPriority]::Background, $executor, $work)
+        } catch {
+            $shutdownFailure = Test-WinUtilDispatcherShutdownException -Exception $_.Exception
+            if ($shutdownFailure -and -not (Test-WinUtilUIAlive)) { return }
+            throw
+        }
+        return
+    }
+
+    try {
+        $result = $dispatcher.Invoke($executor, @($work))
+    } catch {
+        $shutdownFailure = Test-WinUtilDispatcherShutdownException -Exception $_.Exception
+        if ($shutdownFailure -and -not (Test-WinUtilUIAlive)) { return }
+        throw
+    }
+    if ($PassThru) { return $result }
+}
+
+function Invoke-WPFUltimatePerformance ([switch]$Enable) {
+    <#
+
+    .SYNOPSIS
+        Adds or removes the Ultimate Performance power plan
+
+    #>
+
+    if ($Enable) {
+        Step-WinUtilJob -Status "جارٍ إضافة خطة الطاقة للأداء الفائق" -State "Indeterminate"
+        Write-WinUtilLog -Component "Power" -Message "Duplicating and activating the Ultimate Performance power plan."
+
+        $duplicated = powercfg /duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61
+        if ($LASTEXITCODE -ne 0) {
+            throw "powercfg could not duplicate the Ultimate Performance scheme (exit code $LASTEXITCODE)."
+        }
+
+        $guid = ($duplicated | Select-String -Pattern '[A-Fa-f0-9-]{36}').Matches.Value
+        if (-not $guid) {
+            throw "powercfg did not report a scheme GUID to activate."
+        }
+
+        powercfg /setactive $guid
+        if ($LASTEXITCODE -ne 0) {
+            throw "powercfg could not activate the Ultimate Performance scheme (exit code $LASTEXITCODE)."
+        }
+
+        Write-WinUtilLog -Component "Power" -Message "Ultimate Performance power plan installed and activated."
+    } else {
+        Step-WinUtilJob -Status "جارٍ استعادة خطط الطاقة الافتراضية" -State "Indeterminate"
+        Write-WinUtilLog -Component "Power" -Message "Restoring the default power schemes."
+
+        powercfg /restoredefaultschemes
+        if ($LASTEXITCODE -ne 0) {
+            throw "powercfg could not restore the default power schemes (exit code $LASTEXITCODE)."
+        }
+
+        Write-WinUtilLog -Component "Power" -Message "Power plans were reset to defaults."
+    }
+}
+
+function Invoke-WPFundoall {
+    <#
+
+    .SYNOPSIS
+        Undoes every selected tweak
+
+    #>
+
+    $tweaks = $sync.selectedTweaks
+
+    if ($tweaks.count -eq 0) {
+        Show-WinUtilMessage -Message "يرجى تحديد التحسينات التي تريد التراجع عنها." -Title "WinUtil" -Button "OK" -Icon "Warning"
+        return
+    }
+
+    Start-WinUtilJob -Name "Undo tweaks" -Description "التراجع عن التحسينات" -Parameters @{
+        Tweaks = @($tweaks)
+    } -ScriptBlock {
+        param($Tweaks)
+
+        $total = @($Tweaks).Count
+        Write-WinUtilLog -Component "Tweaks" -Message "Undo tweaks requested: $total selected tweak(s)."
+
+        for ($i = 0; $i -lt $total; $i++) {
+            Step-WinUtilJob -Status "جارٍ التراجع عن $($Tweaks[$i]) ($($i + 1)/$total)" -Percent ([int](($i / $total) * 100))
+            Measure-WinUtilStep -Scope "Undo tweaks" -Name $Tweaks[$i] -ScriptBlock {
+                Invoke-WinUtiltweaks $Tweaks[$i] -undo $true
+            }
+            Step-WinUtilJob -Percent ([int]((($i + 1) / $total) * 100))
+        }
+    }
+}
+
+function Invoke-WPFUnInstall {
+    param(
+        [Parameter(Mandatory=$false)]
+        [PSObject[]]$PackagesToUninstall = $($sync.selectedApps | Foreach-Object { $sync.configs.applicationsHashtable.$_ })
+    )
+    <#
+
+    .SYNOPSIS
+        Uninstalls the selected programs
+    #>
+
+    if ($PackagesToUninstall.Count -eq 0) {
+        $WarningMsg = "يرجى تحديد البرامج التي تريد إلغاء تثبيتها"
+        Show-WinUtilMessage -Message $WarningMsg -Title "WinUtil" -Button "OK" -Icon "Warning"
+        return
+    }
+
+    $ButtonType = "YesNo"
+    $MessageboxTitle = "هل أنت متأكد؟"
+    $Messageboxbody = ("سيتم إلغاء تثبيت التطبيقات التالية: `n $($PackagesToUninstall | Select-Object Name, Description| Out-String)")
+    $MessageIcon = "Information"
+
+    $confirm = Show-WinUtilMessage -Message $Messageboxbody -Title $MessageboxTitle -Button $ButtonType -Icon $MessageIcon
+
+    if ($confirm -ne "Yes") { return }
+
+    $ManagerPreference = $sync.preferences.packagemanager
+    Write-WinUtilLog -Component "Uninstall" -Message "Uninstall requested for $(@($PackagesToUninstall).Count) selected package(s) using preference: $ManagerPreference"
+    $packageSummary = Get-WinUtilPackageLogSummary -Packages $PackagesToUninstall -Preference $ManagerPreference
+    Write-WinUtilLog -Component "Uninstall" -Message "Uninstall selected package(s): $($packageSummary -join '; ')"
+
+    Start-WinUtilJob -Name "Uninstall" -Description "إلغاء تثبيت التطبيقات" -DisableAppList -Parameters @{
+        PackagesToUninstall = $PackagesToUninstall
+        ManagerPreference = $ManagerPreference
+    } -ScriptBlock {
+        param($PackagesToUninstall, $ManagerPreference)
+
+        $packagesSorted = Get-WinUtilSelectedPackages -PackageList $PackagesToUninstall -Preference $ManagerPreference
+        $packagesWinget = $packagesSorted['Winget']
+        $packagesChoco = $packagesSorted['Choco']
+        $totalPackages = @($packagesWinget).Count + @($packagesChoco).Count
+        $completedPackages = 0
+        Write-WinUtilLog -Component "Uninstall" -Message "Uninstall package manager split: winget=$(@($packagesWinget).Count), choco=$(@($packagesChoco).Count)"
+
+        if ($packagesWinget -contains "Microsoft.Edge") {
+            New-Item -Path "$Env:SystemRoot\SystemApps\Microsoft.MicrosoftEdge_8wekyb3d8bbwe\MicrosoftEdge.exe" -Force | Out-Null
+        }
+
+        $results = @()
+
+        if ($packagesWinget.Count -gt 0) {
+            foreach ($program in $packagesWinget) {
+                $position = $completedPackages + 1
+                Step-WinUtilJob -Status "جارٍ إلغاء تثبيت $program ($position/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
+
+                $results += Measure-WinUtilStep -Scope "Uninstall" -Name "winget $program" -ScriptBlock {
+                    Install-WinUtilProgramWinget -Action Uninstall -Programs @($program)
+                }
+                $completedPackages++
+                Step-WinUtilJob -Status "تم إلغاء تثبيت $program ($completedPackages/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
+            }
+        }
+
+        if ($packagesChoco.Count -gt 0) {
+            $position = $completedPackages + 1
+            Step-WinUtilJob -Status "جارٍ إلغاء تثبيت حزم Chocolatey ($position/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
+
+            $chocoBase = [int](($completedPackages / $totalPackages) * 100)
+            $chocoSpan = [int]((@($packagesChoco).Count / $totalPackages) * 100)
+            $results += Measure-WinUtilStep -Scope "Uninstall" -Name "choco $($packagesChoco -join ', ')" -ScriptBlock {
+                Install-WinUtilProgramChoco -Action Uninstall -Programs $packagesChoco -ProgressBase $chocoBase -ProgressSpan $chocoSpan
+            }
+            $completedPackages += @($packagesChoco).Count
+            Step-WinUtilJob -Status "تم إلغاء تثبيت حزم Chocolatey ($completedPackages/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
+        }
+
+        Complete-WinUtilPackageRun -Action "Uninstall" -Results $results
+    }
+}
+
+function Invoke-WPFUpdatesdefault {
+    <#
+
+    .SYNOPSIS
+        Resets Windows Update settings to default
+
+    #>
+    Write-WinUtilLog -Component "Updates" -Message "Resetting Windows Update settings to default."
+
+    Write-Host "Removing Windows Update settings managed by WinUtil..." -ForegroundColor Green
+    Write-WinUtilLog -Component "Updates" -Message "Removing Windows Update registry values managed by WinUtil."
+
+    $registryValues = @(
+        @{
+            Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
+            Names = @("NoAutoUpdate", "AUOptions", "NoAutoRebootWithLoggedOnUsers", "AUPowerManagement")
+        },
+        @{
+            Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+            Names = @("ExcludeWUDriversInQualityUpdate", "DeferFeatureUpdates", "DeferFeatureUpdatesPeriodInDays", "DeferQualityUpdates", "DeferQualityUpdatesPeriodInDays")
+        },
+        @{
+            Path = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
+            Names = @("BranchReadinessLevel", "DeferFeatureUpdatesPeriodInDays", "DeferQualityUpdatesPeriodInDays")
+        },
+        @{
+            Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Device Metadata"
+            Names = @("PreventDeviceMetadataFromNetwork")
+        },
+        @{
+            Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching"
+            Names = @("DontPromptForWindowsUpdate", "DontSearchWindowsUpdate", "DriverUpdateWizardWuSearchEnabled")
+        },
+        @{
+            Path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config"
+            Names = @("DODownloadMode")
+        }
+    )
+
+    foreach ($registryEntry in $registryValues) {
+        foreach ($valueName in $registryEntry.Names) {
+            Remove-ItemProperty -Path $registryEntry.Path -Name $valueName -ErrorAction SilentlyContinue
+        }
+    }
+
+    $explorerPolicyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+    $settingsPageVisibility = (Get-ItemProperty -Path $explorerPolicyPath -Name "SettingsPageVisibility" -ErrorAction SilentlyContinue).SettingsPageVisibility
+    if ($settingsPageVisibility -eq "hide:windowsupdate") {
+        Write-Host "Removing WinUtil's legacy Windows Update page restriction..."
+        Write-WinUtilLog -Component "Updates" -Message "Removing the legacy Windows Update settings page restriction."
+        Remove-ItemProperty -Path $explorerPolicyPath -Name "SettingsPageVisibility" -ErrorAction SilentlyContinue
+    }
+
+    Write-Host "Reenabling Windows Update Services..." -ForegroundColor Green
+    Write-WinUtilLog -Component "Updates" -Message "Restoring Windows Update service startup types."
+
+    Write-Host "Restored BITS to Manual."
+    Write-WinUtilLog -Component "Updates" -Message "Restoring BITS service to Manual."
+    Set-Service -Name BITS -StartupType Manual
+
+    Write-Host "Restored wuauserv to Manual."
+    Write-WinUtilLog -Component "Updates" -Message "Restoring wuauserv service to Manual."
+    Set-Service -Name wuauserv -StartupType Manual
+
+    Write-Host "Restored UsoSvc to Automatic."
+    Write-WinUtilLog -Component "Updates" -Message "Starting UsoSvc service and restoring startup type to Automatic."
+    Set-Service -Name UsoSvc -StartupType Automatic
+    Start-Service -Name UsoSvc
+
+    Write-Host "Enabling update related scheduled tasks..." -ForegroundColor Green
+    Write-WinUtilLog -Component "Updates" -Message "Enabling update related scheduled tasks."
+
+    $Tasks =
+        '\Microsoft\Windows\InstallService\*',
+        '\Microsoft\Windows\UpdateOrchestrator\*',
+        '\Microsoft\Windows\UpdateAssistant\*',
+        '\Microsoft\Windows\WaaSMedic\*',
+        '\Microsoft\Windows\WindowsUpdate\*',
+        '\Microsoft\WindowsUpdate\*'
+
+    foreach ($Task in $Tasks) {
+        Get-ScheduledTask -TaskPath $Task -ErrorAction SilentlyContinue | Enable-ScheduledTask -ErrorAction SilentlyContinue
+    }
+
+
+    Write-Host "Note: You must restart your system in order for all changes to take effect." -ForegroundColor Yellow
+    Write-WinUtilLog -Component "Updates" -Message "Windows Update default workflow completed. Restart required."
+}
+
+function Invoke-WPFUpdatesdisable {
+    <#
+
+    .SYNOPSIS
+        Disables Windows Update
+
+    .NOTES
+        Disabling Windows Update is not recommended. This is only for advanced users who know what they are doing.
+
+    #>
+    param([switch]$Confirmed)
+
+    if (-not $Confirmed -and -not (Confirm-WPFUpdatesdisable)) {
+        return
+    }
+
+    Write-WinUtilLog -Component "Updates" -Message "Disabling Windows Update settings."
+
+    Write-Host "Configuring registry settings..." -ForegroundColor Yellow
+    Write-WinUtilLog -Component "Updates" -Message "Configuring Windows Update registry policy values for disable mode."
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Force
+
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoUpdate" -Type DWord -Value 1
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUOptions" -Type DWord -Value 1
+
+    New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Force
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Name "DODownloadMode" -Type DWord -Value 0
+
+    foreach ($serviceName in @("BITS", "wuauserv", "UsoSvc")) {
+        Write-Host "Stopping and disabling $serviceName service."
+        Write-WinUtilLog -Component "Updates" -Message "Stopping and disabling $serviceName service."
+        Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+        Set-Service -Name $serviceName -StartupType Disabled
+    }
+
+    Remove-Item -Path "C:\Windows\SoftwareDistribution\*" -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Host "Cleared SoftwareDistribution folder."
+    Write-WinUtilLog -Component "Updates" -Message "Cleared SoftwareDistribution folder."
+
+    Write-Host "Disabling update related scheduled tasks..." -ForegroundColor Yellow
+    Write-WinUtilLog -Component "Updates" -Message "Disabling update related scheduled tasks."
+
+    $Tasks =
+        '\Microsoft\Windows\InstallService\*',
+        '\Microsoft\Windows\UpdateOrchestrator\*',
+        '\Microsoft\Windows\UpdateAssistant\*',
+        '\Microsoft\Windows\WaaSMedic\*',
+        '\Microsoft\Windows\WindowsUpdate\*',
+        '\Microsoft\WindowsUpdate\*'
+
+    foreach ($Task in $Tasks) {
+        Get-ScheduledTask -TaskPath $Task -ErrorAction SilentlyContinue | Disable-ScheduledTask -ErrorAction SilentlyContinue
+    }
+
+
+    Write-Host "Note: You must restart your system in order for all changes to take effect." -ForegroundColor Yellow
+    Write-WinUtilLog -Component "Updates" -Message "Windows Update disable workflow completed. Restart required."
+}
+
+function Confirm-WPFUpdatesdisable {
+    $confirmation = Show-WinUtilMessage `
+        -Message "تعطيل Windows Update يوقف خدمات التحديث ويعطّل المهام المجدولة ويمسح ملفات التحديث المنزّلة. لن تُثبَّت التحديثات الأمنية حتى تستعيد الإعدادات الافتراضية. هل تريد المتابعة؟" `
+        -Title "تعطيل Windows Update؟" `
+        -Button "YesNo" `
+        -Icon "Warning"
+
+    if ($confirmation -ne "Yes") {
+        Write-WinUtilLog -Component "Updates" -Message "Windows Update disable workflow cancelled."
+        return $false
+    }
+    return $true
+}
+
+function Invoke-WPFUpdatessecurity {
+    <#
+
+    .SYNOPSIS
+        Sets Windows Update to recommended settings
+
+    .DESCRIPTION
+        1. Disables driver offering through Windows Update
+        2. Defers feature updates for 365 days
+        3. Defers quality updates for 4 days
+        4. Configures automatic updates to notify when downloaded updates are ready to install
+
+    #>
+
+    Write-Host "Disabling driver offering through Windows Update..."
+    Write-WinUtilLog -Component "Updates" -Message "Applying recommended Windows Update settings."
+    Write-WinUtilLog -Component "Updates" -Message "Disabling driver offering through Windows Update."
+
+    $windowsUpdatePolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+    $automaticUpdatePolicyPath = Join-Path $windowsUpdatePolicyPath "AU"
+
+    Write-Host "Restoring Windows Update availability..."
+    Write-WinUtilLog -Component "Updates" -Message "Restoring Windows Update services and scheduled tasks before applying recommended settings."
+
+    Remove-ItemProperty -Path $automaticUpdatePolicyPath -Name "NoAutoUpdate" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Name "DODownloadMode" -ErrorAction SilentlyContinue
+
+    Set-Service -Name BITS -StartupType Manual
+    Set-Service -Name wuauserv -StartupType Manual
+    Set-Service -Name UsoSvc -StartupType Automatic
+    Start-Service -Name UsoSvc
+
+    $Tasks =
+        '\Microsoft\Windows\InstallService\*',
+        '\Microsoft\Windows\UpdateOrchestrator\*',
+        '\Microsoft\Windows\UpdateAssistant\*',
+        '\Microsoft\Windows\WaaSMedic\*',
+        '\Microsoft\Windows\WindowsUpdate\*',
+        '\Microsoft\WindowsUpdate\*'
+
+    foreach ($Task in $Tasks) {
+        Get-ScheduledTask -TaskPath $Task -ErrorAction SilentlyContinue | Enable-ScheduledTask -ErrorAction SilentlyContinue
+    }
+
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Device Metadata" -Force
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Device Metadata" -Name "PreventDeviceMetadataFromNetwork" -Type DWord -Value 1
+
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Force
+
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DontPromptForWindowsUpdate" -Type DWord -Value 1
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DontSearchWindowsUpdate" -Type DWord -Value 1
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DriverUpdateWizardWuSearchEnabled" -Type DWord -Value 0
+
+    New-Item -Path $windowsUpdatePolicyPath -Force
+    Set-ItemProperty -Path $windowsUpdatePolicyPath -Name "ExcludeWUDriversInQualityUpdate" -Type DWord -Value 1
+
+    Write-Host "Deferring feature updates by 365 days and quality updates by 4 days..."
+    Write-WinUtilLog -Component "Updates" -Message "Deferring feature updates by 365 days and quality updates by 4 days."
+
+    Set-ItemProperty -Path $windowsUpdatePolicyPath -Name "DeferFeatureUpdates" -Type DWord -Value 1
+    Set-ItemProperty -Path $windowsUpdatePolicyPath -Name "DeferFeatureUpdatesPeriodInDays" -Type DWord -Value 365
+    Set-ItemProperty -Path $windowsUpdatePolicyPath -Name "DeferQualityUpdates" -Type DWord -Value 1
+    Set-ItemProperty -Path $windowsUpdatePolicyPath -Name "DeferQualityUpdatesPeriodInDays" -Type DWord -Value 4
+
+    $legacySettingsPath = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
+    foreach ($legacyValue in @("BranchReadinessLevel", "DeferFeatureUpdatesPeriodInDays", "DeferQualityUpdatesPeriodInDays")) {
+        Remove-ItemProperty -Path $legacySettingsPath -Name $legacyValue -ErrorAction SilentlyContinue
+    }
+
+    Write-Host "Configuring automatic updates to download and notify before installation..."
+    Write-WinUtilLog -Component "Updates" -Message "Configuring automatic updates to download and notify before installation."
+
+    New-Item -Path $automaticUpdatePolicyPath -Force
+
+    # Remove the previous scheduled-install reboot policy when switching to download-and-notify.
+    Remove-ItemProperty -Path $automaticUpdatePolicyPath -Name "NoAutoRebootWithLoggedOnUsers" -ErrorAction SilentlyContinue
+
+    # AUOptions 3 downloads updates and notifies before installation; it does not control restarts.
+    Set-ItemProperty -Path $automaticUpdatePolicyPath -Name "AUOptions" -Type DWord -Value 3
+    Set-ItemProperty -Path $automaticUpdatePolicyPath -Name "AUPowerManagement" -Type DWord -Value 0
+
+    Write-WinUtilLog -Component "Updates" -Message "Recommended Windows Update settings workflow completed."
+}
+
 function Add-SelectedAppsMenuItem {
     <#
     .SYNOPSIS
@@ -1144,7 +4230,7 @@ function Get-WinUtilCategoryDisplayName {
 
     $names = @{
         # Install tab
-        "Browsers"                              = "Saud"
+        "Browsers"                              = "المتصفحات"
         "Communications"                        = "التواصل"
         "Development"                           = "التطوير"
         "Document"                              = "المستندات"
@@ -9450,3092 +12536,6 @@ function Write-WinUtilLog {
     } catch {
         Write-Warning "Unable to write WinUtil log entry: $($_.Exception.Message)"
     }
-}
-
-function Initialize-WPFUI {
-    [OutputType([void])]
-    param(
-        [Parameter(Mandatory)]
-        [string]$TargetGridName
-    )
-
-    switch ($TargetGridName) {
-        "appscategory"{
-            Invoke-WPFUIElements -configVariable $sync.configs.appnavigation -targetGridName "appscategory" -columncount 1
-
-            # Create and configure a popup for displaying selected apps
-            $selectedAppsPopup = New-Object Windows.Controls.Primitives.Popup
-            $selectedAppsPopup.IsOpen = $false
-            $selectedAppsPopup.PlacementTarget = $sync.WPFselectedAppsButton
-            $selectedAppsPopup.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
-            $selectedAppsPopup.AllowsTransparency = $true
-
-            # Style the popup with a border and background
-            $selectedAppsBorder = New-Object Windows.Controls.Border
-            $selectedAppsBorder.SetResourceReference([Windows.Controls.Control]::BackgroundProperty, "MainBackgroundColor")
-            $selectedAppsBorder.SetResourceReference([Windows.Controls.Control]::BorderBrushProperty, "MainForegroundColor")
-            $selectedAppsBorder.SetResourceReference([Windows.Controls.Control]::BorderThicknessProperty, "ButtonBorderThickness")
-            $selectedAppsBorder.Width = 200
-            $selectedAppsBorder.Padding = 5
-            $selectedAppsPopup.Child = $selectedAppsBorder
-            $sync.selectedAppsPopup = $selectedAppsPopup
-
-            # Add a stack panel inside the popup's border to organize its child elements
-            $sync.selectedAppsstackPanel = New-Object Windows.Controls.StackPanel
-            $selectedAppsBorder.Child = $sync.selectedAppsstackPanel
-
-            # Close selectedAppsPopup when mouse leaves both button and selectedAppsPopup
-            $sync.WPFselectedAppsButton.Add_MouseLeave({
-                if (-not $sync.selectedAppsPopup.IsMouseOver) {
-                    $sync.selectedAppsPopup.IsOpen = $false
-                }
-            })
-            $selectedAppsPopup.Add_MouseLeave({
-                if (-not $sync.WPFselectedAppsButton.IsMouseOver) {
-                    $sync.selectedAppsPopup.IsOpen = $false
-                }
-            })
-
-            # Creates the popup that is displayed when the user right-clicks on an app entry
-            # This popup contains buttons for installing, uninstalling, and viewing app information
-
-            $appPopup = New-Object Windows.Controls.Primitives.Popup
-            $appPopup.StaysOpen = $false
-            $appPopup.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
-            $appPopup.AllowsTransparency = $true
-            # Store the popup globally so the position can be set later
-            $sync.appPopup = $appPopup
-
-            $appPopupStackPanel = New-Object Windows.Controls.StackPanel
-            $appPopupStackPanel.Orientation = "Horizontal"
-            $appPopupStackPanel.Add_MouseLeave({
-                $sync.appPopup.IsOpen = $false
-            })
-            $appPopup.Child = $appPopupStackPanel
-
-            $appButtons = @(
-            [PSCustomObject]@{ Name = "Install";    Icon = [char]0xE118 },
-            [PSCustomObject]@{ Name = "Uninstall";  Icon = [char]0xE74D },
-            [PSCustomObject]@{ Name = "Info";       Icon = [char]0xE946 }
-            )
-            foreach ($button in $appButtons) {
-                $newButton = New-Object Windows.Controls.Button
-                $newButton.Style = $sync.Form.Resources.AppEntryButtonStyle
-                $newButton.Content = $button.Icon
-                $appPopupStackPanel.Children.Add($newButton) | Out-Null
-
-                # Dynamically load the selected app object so the buttons can be reused and do not need to be created for each app
-                switch ($button.Name) {
-                    "Install" {
-                        $newButton.Add_MouseEnter({
-                            $appObject = $sync.configs.applicationsHashtable.$($sync.appPopupSelectedApp)
-                            $this.ToolTip = "تثبيت أو تحديث $($appObject.content)"
-                        })
-                        $newButton.Add_Click({
-                            $appObject = $sync.configs.applicationsHashtable.$($sync.appPopupSelectedApp)
-                            Invoke-WPFInstall -PackagesToInstall $appObject
-                        })
-                    }
-                    "Uninstall" {
-                        $newButton.Add_MouseEnter({
-                            $appObject = $sync.configs.applicationsHashtable.$($sync.appPopupSelectedApp)
-                            $this.ToolTip = "إلغاء تثبيت $($appObject.content)"
-                        })
-                        $newButton.Add_Click({
-                            $appObject = $sync.configs.applicationsHashtable.$($sync.appPopupSelectedApp)
-                            Invoke-WPFUnInstall -PackagesToUninstall $appObject
-                        })
-                    }
-                    "Info" {
-                        $newButton.Add_MouseEnter({
-                            $appObject = $sync.configs.applicationsHashtable.$($sync.appPopupSelectedApp)
-                            $this.ToolTip = "فتح موقع التطبيق في متصفحك الافتراضي`n$($appObject.link)"
-                        })
-                        $newButton.Add_Click({
-                            $appObject = $sync.configs.applicationsHashtable.$($sync.appPopupSelectedApp)
-                            Start-Process $appObject.link
-                        })
-                    }
-                }
-            }
-        }
-        "appspanel" {
-            $sync.ItemsControl = Initialize-InstallAppArea -TargetElement $TargetGridName
-            Initialize-InstallCategoryAppList -TargetElement $sync.ItemsControl -Apps $sync.configs.applicationsHashtable
-        }
-        default {
-            Write-Output "$TargetGridName not yet implemented"
-        }
-    }
-}
-
-
-function Invoke-WinUtilAutoRun {
-    <#
-
-    .SYNOPSIS
-        Runs every selected action to completion without a window
-
-    .DESCRIPTION
-        The headless path. Each action is the same job the button would start, run one at a time
-        because the job layer allows one at a time, and waited on until the worker clears the
-        busy flag.
-
-        Returns a summary of what ran so the caller can decide the exit code. Nothing here
-        touches the interface, so it behaves the same whether a window exists or not.
-
-    .PARAMETER StopTimeoutSeconds
-        How long a step that timed out is given to stop before the run gives up on the rest.
-
-    .PARAMETER StepTimeoutSeconds
-        How long a single action may take before the run gives up on it. Without a ceiling an
-        installer waiting on something that will never arrive hangs the run for good.
-
-    #>
-    param(
-        [int]$StepTimeoutSeconds = 3600,
-
-        [int]$StopTimeoutSeconds = 30
-    )
-
-    $steps = @(
-        [pscustomobject]@{ Name = "Tweaks";          Count = @($sync.selectedTweaks).Count;   Action = { Invoke-WPFtweaksbutton } }
-        [pscustomobject]@{ Name = "Toggles";         Count = @($sync.selectedToggles).Count;  Action = { Invoke-WPFToggleSelections } }
-        [pscustomobject]@{ Name = "Features";        Count = @($sync.selectedFeatures).Count; Action = { Invoke-WPFFeatureInstall } }
-        [pscustomobject]@{ Name = "Applications";    Count = @($sync.selectedApps).Count;     Action = { Invoke-WPFInstall } }
-        [pscustomobject]@{ Name = "AppX removal";    Count = @($sync.selectedAppx).Count;     Action = { Invoke-WPFAppxRemoval } }
-    )
-
-    $planned = @($steps | Where-Object { $_.Count -gt 0 })
-    if ($planned.Count -eq 0) {
-        Write-WinUtilLog -Level "WARN" -Component "AutoRun" -Message "Nothing was selected, so there is nothing to do."
-        return [pscustomobject]@{ Steps = @(); Failed = 0; TimedOut = 0; Errors = 0; Warnings = 0 }
-    }
-
-    Write-WinUtilLog -Component "AutoRun" -Message "Headless run starting: $(($planned | ForEach-Object { "$($_.Name) ($($_.Count))" }) -join ', ')"
-
-    $results = New-Object System.Collections.ArrayList
-    $runClock = [System.Diagnostics.Stopwatch]::StartNew()
-
-    foreach ($step in $planned) {
-        $errorsBefore = if ($sync.LoggedErrors) { $sync.LoggedErrors.Count } else { 0 }
-        $sync.LastJobResult = $null
-        $stepClock = [System.Diagnostics.Stopwatch]::StartNew()
-        $timedOut = $false
-
-        Write-WinUtilLog -Component "AutoRun" -Message "$($step.Name): starting $($step.Count) item(s)."
-
-        try {
-            & $step.Action
-        } catch {
-            Write-WinUtilErrorRecord -ErrorRecord $_ -Component "AutoRun" -Context "Starting $($step.Name)"
-        }
-
-        # The action starts a job and returns; the run is over when the worker clears the flag
-        while ($sync.ActiveJob) {
-            if ($stepClock.Elapsed.TotalSeconds -ge $StepTimeoutSeconds) {
-                $timedOut = $true
-                Write-WinUtilLog -Level "ERROR" -Component "AutoRun" -Message "$($step.Name) did not finish within $StepTimeoutSeconds seconds, moving on."
-                break
-            }
-            Start-Sleep -Milliseconds 200
-        }
-
-        $stepClock.Stop()
-        $newErrors = if ($sync.LoggedErrors) { $sync.LoggedErrors.Count - $errorsBefore } else { 0 }
-        $newWarnings = if ($null -ne $sync.LastJobResult) { [int]$sync.LastJobResult.Warnings } else { 0 }
-
-        $null = $results.Add([pscustomobject]@{
-            Name = $step.Name
-            Items = $step.Count
-            Seconds = [int]$stepClock.Elapsed.TotalSeconds
-            Errors = $newErrors
-            Warnings = $newWarnings
-            TimedOut = $timedOut
-        })
-
-        $outcome = if ($timedOut) { "timed out" } elseif ($newErrors -gt 0) { "finished with $newErrors error(s)" } elseif ($newWarnings -gt 0) { "finished with $newWarnings warning(s)" } else { "finished" }
-        Write-WinUtilLog -Component "AutoRun" -Message "$($step.Name): $outcome after $([int]$stepClock.Elapsed.TotalSeconds)s."
-
-        if ($timedOut) {
-            # The worker is still on the pool. Clearing the slot on its own would let the next
-            # step start beside it, so two runs would be changing the machine at once.
-            Stop-WinUtilActiveWork -NoWait | Out-Null
-
-            $stopDeadline = (Get-Date).AddSeconds($StopTimeoutSeconds)
-            while ((Test-WinUtilActiveWorkRunning) -and (Get-Date) -lt $stopDeadline) {
-                Start-Sleep -Milliseconds 200
-            }
-
-            # A job that never cleared the flag would make every later step refuse to start
-            $null = Clear-WinUtilActiveJob
-
-            if (Test-WinUtilActiveWorkRunning) {
-                Write-WinUtilLog -Level "ERROR" -Component "AutoRun" -Message "$($step.Name) could not be stopped, so the remaining steps are abandoned rather than run beside it."
-                break
-            }
-        }
-    }
-
-    $runClock.Stop()
-    Write-WinUtilTimingSummary -Scope "AutoRun" -TotalMilliseconds $runClock.ElapsedMilliseconds
-
-    return [pscustomobject]@{
-        Steps = @($results)
-        Failed = @($results | Where-Object { $_.Errors -gt 0 }).Count
-        TimedOut = @($results | Where-Object { $_.TimedOut }).Count
-        Errors = (@($results | Measure-Object -Property Errors -Sum).Sum)
-        Warnings = (@($results | Measure-Object -Property Warnings -Sum).Sum)
-    }
-}
-
-function Write-WinUtilAutoRunSummary {
-    <#
-        .SYNOPSIS
-            Prints what a headless run did and returns the exit code it should end with
-    #>
-    param(
-        [Parameter(Mandatory)]
-        $Summary
-    )
-
-    Write-Host ""
-    Write-Host "=== WinUtil headless run ===" -ForegroundColor Cyan
-
-    foreach ($step in @($Summary.Steps)) {
-        $state = if ($step.TimedOut) { "TIMED OUT" } elseif ($step.Errors -gt 0) { "$($step.Errors) error(s)" } elseif ($step.Warnings -gt 0) { "$($step.Warnings) warning(s)" } else { "ok" }
-        $colour = if ($step.TimedOut -or $step.Errors -gt 0 -or $step.Warnings -gt 0) { "Yellow" } else { "Green" }
-        Write-Host ("  {0,-14} {1,3} item(s)  {2,5}s  {3}" -f $step.Name, $step.Items, $step.Seconds, $state) -ForegroundColor $colour
-    }
-
-    if (@($Summary.Steps).Count -eq 0) {
-        Write-Host "  nothing was selected" -ForegroundColor Yellow
-        Write-Host ""
-        return 2
-    }
-
-    if ($Summary.TimedOut -gt 0 -or $Summary.Failed -gt 0) {
-        Write-Host ""
-        Write-Host "Finished with problems. See $($sync.logPath)" -ForegroundColor Yellow
-        Write-Host ""
-        return 1
-    }
-
-    if ($Summary.Warnings -gt 0) {
-        Write-Host ""
-        Write-Host "Completed with warnings. See $($sync.logPath)" -ForegroundColor Yellow
-        Write-Host ""
-        return 0
-    }
-
-    Write-Host ""
-    Write-Host "All steps completed. Log: $($sync.logPath)" -ForegroundColor Green
-    Write-Host ""
-    return 0
-}
-
-function Invoke-WPFAppxInstall {
-    if ($null -eq $sync.selectedAppx -or $sync.selectedAppx.Count -eq 0) {
-        Show-WinUtilMessage -Message "لم تحدد أي حزمة AppX" -Title "خطأ" -Button "OK" -Icon "Error"
-        return
-    }
-
-    Start-WinUtilJob -Name "AppX install" -Description "تثبيت حزم AppX" -Parameters @{
-        Selected = @($sync.selectedAppx)
-        Apps = $sync.configs.appxHashtable
-    } -ScriptBlock {
-        param($Selected, $Apps)
-
-        $totalPackages = @($Selected).Count
-        $results = @()
-        Write-WinUtilLog -Component "AppX" -Message "Starting AppX install for $totalPackages selected package(s)."
-
-        for ($index = 0; $index -lt $totalPackages; $index++) {
-            $app = $Apps[$Selected[$index]]
-            $position = $index + 1
-
-            Step-WinUtilJob -Status "جارٍ تثبيت $($app.Content) ($position/$totalPackages)" -Percent ([int](($index / $totalPackages) * 100))
-            Write-Host "Installing $($app.Content)"
-            $appResults = @(Install-WinUtilAPPX -Name $app.PackageId -StoreId $app.StoreId)
-            $results += $appResults
-            $status = if (@($appResults | Where-Object Outcome -EQ "Failed").Count -gt 0) {
-                "فشل تثبيت"
-            } elseif (@($appResults | Where-Object Outcome -EQ "Skipped").Count -gt 0) {
-                "تم تخطي"
-            } else {
-                "تم تثبيت"
-            }
-            Step-WinUtilJob -Status "$status $($app.Content) ($position/$totalPackages)" -Percent ([int](($position / $totalPackages) * 100))
-        }
-
-        Complete-WinUtilPackageRun -Action "Install" -Results $results
-    }
-}
-
-function Invoke-WPFAppxRemoval {
-    <#
-
-    .SYNOPSIS
-        Removes the selected AppX packages
-
-    #>
-
-    if ($null -eq $sync.selectedAppx -or $sync.selectedAppx.Count -eq 0) {
-        Show-WinUtilMessage -Message "لم تحدد أي حزمة AppX" -Title "خطأ" -Button "OK" -Icon "Error"
-        return
-    }
-
-    Start-WinUtilJob -Name "AppX" -Description "إزالة حزم AppX" -Parameters @{
-        Selected = @($sync.selectedAppx)
-        Apps = $sync.configs.appxHashtable
-    } -ScriptBlock {
-        param($Selected, $Apps)
-
-        $total = @($Selected).Count
-        $packageList = [System.Collections.Generic.List[string]]::new()
-        Write-WinUtilLog -Component "AppX" -Message "Starting AppX removal for $total selected package(s)."
-
-        for ($index = 0; $index -lt $total; $index++) {
-            $key = $Selected[$index]
-            $app = $Apps[$key]
-            $position = $index + 1
-            Step-WinUtilJob -Status "جارٍ إزالة $($app.Content) ($position/$total)" -Percent ([int](($index / $total) * 90))
-
-            if ($key -eq "WPFAppxMicrosoft_XboxGamingOverlay") {
-                # Making sure Game Bar isn't running
-                Write-WinUtilLog -Component "AppX" -Message "Stopping GameBarFTServer before removing Xbox Gaming Overlay."
-                Stop-Process -Name GameBarFTServer -Force -Confirm:$false -ErrorAction SilentlyContinue
-
-                # This stops annoying ms-gamebar popup when launching games.
-                Write-WinUtilLog -Component "AppX" -Message "Disabling Game DVR capture before removing Xbox Gaming Overlay."
-                Set-ItemProperty -Path HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\GameDVR -Name AppCaptureEnabled -Value 0
-            }
-
-            if ($key -eq "WPFAppxMicrosoft_WindowsNotepad") {
-                Write-WinUtilLog -Component "AppX" -Message "Stopping dllhost before removing Notepad."
-                Stop-Process -Name dllhost -Force -Confirm:$false -ErrorAction SilentlyContinue
-            }
-
-            Write-Host "Removing $($app.Content)"
-            Write-WinUtilLog -Component "AppX" -Message "Removing $($app.Content) ($($app.PackageId))."
-            Remove-WinUtilAPPX -Name $app.PackageId
-            $packageList.Add($app.PackageId)
-
-            if ($key -eq "WPFAppxMSTeams") {
-                # Uninstalls Microsoft Teams Meeting Add-in for Microsoft Office
-                Write-WinUtilLog -Component "AppX" -Message "Uninstalling Microsoft Teams meeting add-in package."
-                Get-Package -Name "Microsoft Teams*" -ErrorAction SilentlyContinue | Uninstall-Package -Force
-            }
-
-            Step-WinUtilJob -Status "تمت إزالة $($app.Content) ($position/$total)" -Percent ([int](($position / $total) * 90))
-        }
-
-        if ($packageList.Count -gt 0) {
-            Step-WinUtilJob -Status "جارٍ إزالة حزم AppX المجهّزة مسبقًا" -Percent 90
-            Remove-WinUtilProvisionedAPPX -PackageList $packageList.ToArray()
-        }
-    }
-}
-
-function Invoke-WPFButton {
-
-    <#
-
-    .SYNOPSIS
-        Routes a button press, deciding whether it is interface work or a job
-
-    .DESCRIPTION
-        This is the one place that classifies a button. Anything that changes the system runs
-        through Start-WinUtilJob, which means it gets the busy flag, the progress bar, the
-        taskbar item, the console banner and the log lines without each workflow arranging that
-        for itself. Anything that only changes what the interface is showing runs here and now,
-        because pushing it onto a worker would just make it slower.
-
-    .PARAMETER Button
-        The name of the button that was clicked
-
-    #>
-
-    Param ([string]$Button)
-
-    # Clear the progress left behind by the previous job, but never while one is running
-    if (-not $sync.ActiveJob) {
-        Step-WinUtilJob -Hide
-    }
-
-    # Switch-driven buttons that change the system. Anything in feature.json counts too. The
-    # WPFPanel* entries are the exception only when they hand off to a Windows applet, which is
-    # what a missing function means; the two that carry one change the system themselves and
-    # would otherwise run their waits on the interface thread with nothing reporting them.
-    #
-    # This is a whitelist on purpose: window chrome and popup toggles also reach here, because
-    # every Button in $sync gets wired to this function, and they must not become jobs.
-    $workButtons = @(
-        "WPFInstallUpgrade", "WPFAddUltPerf", "WPFRemoveUltPerf",
-        "WPFUpdatesdefault", "WPFUpdatesdisable", "WPFUpdatessecurity",
-        "WPFGetInstalledAppx"
-    )
-
-    $featureEntry = $sync.configs.feature.$Button
-    # Feature installation owns its selection validation and snapshots the selection before it
-    # starts a job. Wrapping it here would turn its "nothing selected" return into job success.
-    $isConfigWork = $featureEntry -and $Button -ne "WPFFeatureInstall" -and
-        ($Button -notlike "WPFPanel*" -or $featureEntry.function)
-
-    if ($isConfigWork -or $workButtons -contains $Button) {
-        $updatesDisableConfirmed = $false
-        if ($Button -eq "WPFUpdatesdisable") {
-            $updatesDisableConfirmed = Confirm-WPFUpdatesdisable
-            if (-not $updatesDisableConfirmed) {
-                return
-            }
-        }
-
-        Start-WinUtilJob -Name (Get-WinUtilButtonLabel -Button $Button) -Parameters @{
-            Button = $Button
-            UpdatesDisableConfirmed = $updatesDisableConfirmed
-        } -ScriptBlock {
-            param($Button, $UpdatesDisableConfirmed)
-
-            Invoke-WPFButtonAction -Button $Button -UpdatesDisableConfirmed:$UpdatesDisableConfirmed
-        }
-        return
-    }
-
-    # A handler that throws on the interface thread would otherwise reach the user as a bare
-    # message with no indication of which control produced it
-    try {
-        Invoke-WPFButtonAction -Button $Button
-    } catch {
-        Write-WinUtilErrorRecord -ErrorRecord $_ -Component "UI" -Context "Button '$Button'"
-    }
-}
-
-function Get-WinUtilButtonLabel {
-    <#
-    .SYNOPSIS
-        Returns the name a button's job should be reported under.
-
-    .DESCRIPTION
-        Whatever the button says is what the progress bar, the banner and the log say, so the
-        wording never drifts from the interface and there is no second list to maintain. Falls
-        back to the button name when there is nothing to read.
-    #>
-    param([string]$Button)
-
-    $content = $sync.configs.feature.$Button.Content
-    if (-not [string]::IsNullOrWhiteSpace($content)) {
-        return $content
-    }
-
-    $control = $sync.$Button
-    if ($control -and $control.Content) {
-        $text = if ($control.Content -is [string]) { $control.Content } else { $control.Content.Text }
-        if (-not [string]::IsNullOrWhiteSpace($text)) {
-            return ([string]$text).Trim()
-        }
-    }
-
-    $fallback = ($Button -replace '^WPF', '')
-    if ([string]::IsNullOrWhiteSpace($fallback)) {
-        return "WinUtil"
-    }
-    return $fallback
-}
-
-function Invoke-WPFButtonAction {
-
-    <#
-
-    .SYNOPSIS
-        Invokes the function associated with the clicked button
-
-    .DESCRIPTION
-        The work itself. Called by Invoke-WPFButton, either directly or from inside a job, so it
-        must not concern itself with progress, busy state or banners.
-
-    .PARAMETER Button
-        The name of the button that was clicked
-
-    #>
-
-    Param (
-        [string]$Button,
-        [switch]$UpdatesDisableConfirmed
-    )
-
-    # Check if button is defined in feature config with function or InvokeScript
-    if ($sync.configs.feature.$Button) {
-        $buttonConfig = $sync.configs.feature.$Button
-
-        # If button has a function defined, call it
-        if ($buttonConfig.function) {
-            $functionName = $buttonConfig.function
-            if (Get-Command $functionName -ErrorAction SilentlyContinue) {
-                & $functionName
-                return
-            }
-        }
-
-        # If button has InvokeScript defined, execute the scripts
-        if ($buttonConfig.InvokeScript -and $buttonConfig.InvokeScript.Count -gt 0) {
-            foreach ($script in $buttonConfig.InvokeScript) {
-                if (-not [string]::IsNullOrWhiteSpace($script)) {
-                    Invoke-Command -ScriptBlock ([scriptblock]::Create($script)) -ErrorAction Stop
-                }
-            }
-            return
-        }
-    }
-
-    # Fallback to hard-coded switch for buttons not in feature.json
-    Switch -Wildcard ($Button) {
-        "WPFTab?BT" {Invoke-WPFTab $Button}
-        "WPFInstall" {Invoke-WPFInstall}
-        "WPFUninstall" {Invoke-WPFUnInstall}
-        "WPFInstallUpgrade" {Invoke-WPFInstallUpgrade}
-        "WPFCollapseAllCategories" {Invoke-WPFToggleAllCategories -Action "Collapse"}
-        "WPFExpandAllCategories" {Invoke-WPFToggleAllCategories -Action "Expand"}
-        "WPFStandard" {Invoke-WPFPresets "Standard" -checkboxfilterpattern "WPFTweak*"}
-        "WPFMinimal" {Invoke-WPFPresets "Minimal" -checkboxfilterpattern "WPFTweak*"}
-        "WPFAdvanced" {Invoke-WPFPresets "Advanced" -checkboxfilterpattern "WPFTweak*"}
-        "WPFGaming" {Invoke-WPFPresets "Gaming" -checkboxfilterpattern "WPFTweak*"}
-        "WPFPrivacy" {Invoke-WPFPresets "Privacy" -checkboxfilterpattern "WPFTweak*"}
-        "WPFLowEnd" {Invoke-WPFPresets "LowEnd" -checkboxfilterpattern "WPFTweak*"}
-        "WPFClearTweaksSelection" {Invoke-WPFPresets -imported $true -checkboxfilterpattern "WPFTweak*"}
-        "WPFClearInstallSelection" {Invoke-WPFPresets -imported $true -checkboxfilterpattern "WPFInstall*"}
-        "WPFtweaksbutton" {Invoke-WPFtweaksbutton}
-        "WPFOOSUbutton" {Invoke-WPFOOSU}
-        "WPFAddUltPerf" {Invoke-WPFUltimatePerformance -Enable}
-        "WPFRemoveUltPerf" {Invoke-WPFUltimatePerformance}
-        "WPFundoall" {Invoke-WPFundoall}
-        "WPFUpdatesdefault" {Invoke-WPFUpdatesdefault}
-        "WPFUpdatesdisable" {Invoke-WPFUpdatesdisable -Confirmed:$UpdatesDisableConfirmed}
-        "WPFUpdatessecurity" {Invoke-WPFUpdatessecurity}
-        "WPFGetInstalled" {Invoke-WPFGetInstalled -CheckBox "winget"}
-        "WPFGetInstalledTweaks" {Invoke-WPFGetInstalled -CheckBox "tweaks"}
-        "WPFAppxRemoval" {Invoke-WPFTab "WPFTab6BT"}
-        "WPFOpenWebsite" {Start-Process "https://wasv3zo-cloud.github.io/winutil-ar/"}
-        "WPFBackToTweaks" {Invoke-WPFTab "WPFTab2BT"}
-        "WPFInstallSelectedAppx" {Invoke-WPFAppxInstall}
-        "WPFRemoveSelectedAppx" {Invoke-WPFAppxRemoval}
-        "WPFDefaultAppxSelection" {Invoke-WPFPresets "AppxDefault" -checkboxfilterpattern "WPFAppx*"}
-        "WPFSelectAllAppx" {
-            $sync.configs.appxHashtable.Keys | ForEach-Object {$sync.$_.IsChecked = $true}
-        }
-        "WPFClearAppxSelection" {
-            $sync.configs.appxHashtable.Keys | ForEach-Object {$sync.$_.IsChecked = $false}
-        }
-        "WPFGetInstalledAppx" {
-            $installedAppxPackages = Get-WinUtilInstalledAPPX
-            Invoke-WPFUIThread -Parameters @{ Installed = $installedAppxPackages } -ScriptBlock {
-                param($Installed)
-                foreach ($appx in $sync.configs.appxHashtable.GetEnumerator()) {
-                    if ($appx.Value.PackageId -in $Installed) {
-                        $sync.$($appx.Key).IsChecked = $true
-                    }
-                }
-            }
-        }
-        # Closing may be declined, or leave a job running that outlives the window, so the
-        # goodbye belongs at the point the process actually ends rather than here
-        "WPFCloseButton" {$sync.Form.Close()}
-        "WPFMinimizeButton" {[Windows.SystemCommands]::MinimizeWindow($sync.Form)}
-        "WPFMaximizeButton" {
-            if ($sync.Form.WindowState -eq [Windows.WindowState]::Normal) {
-                [Windows.SystemCommands]::MaximizeWindow($sync.Form)
-            } else {
-                [Windows.SystemCommands]::RestoreWindow($sync.Form)
-            }
-        }
-        "WPFselectedAppsButton" {$sync.selectedAppsPopup.IsOpen = -not $sync.selectedAppsPopup.IsOpen}
-    }
-}
-
-function Invoke-WPFExportEnvironmentReport {
-    <#
-    .SYNOPSIS
-        Exports an allowlisted, read-only environment report as JSON, with an optional bundle of
-        recent WinUtil logs.
-    #>
-
-    try {
-        $includeLogs = (Show-WinUtilMessage `
-            -Message "هل تريد تضمين سجلات WinUtil لآخر 7 أيام؟ الملف المرافق يحتوي على سجلات خام قد تتضمن مسارات محلية وأوامر وتفاصيل أخطاء. راجعه قبل مشاركته." `
-            -Title "تقرير بيئة النظام" -Button "YesNo" -Icon "Question") -eq "Yes"
-
-        Add-Type -AssemblyName System.Windows.Forms
-        $dialog = [System.Windows.Forms.SaveFileDialog]::new()
-        $dialog.Title = "تصدير تقرير بيئة النظام"
-        $dialog.Filter = "JSON files (*.json)|*.json"
-        $dialog.FileName = "WinUtilEnvironmentReport_$(Get-Date -Format 'yyyyMMdd').json"
-        $dialog.InitialDirectory = [Environment]::GetFolderPath("Desktop")
-
-        if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
-            return
-        }
-
-        $jsonPath = $dialog.FileName
-        $logsPath = Get-WinUtilEnvironmentReportLogsPath -JsonPath $jsonPath
-
-        # SaveFileDialog's own overwrite prompt only covers $jsonPath. A derived companion from a
-        # previous export must neither be silently replaced nor left looking like it belongs to new JSON.
-        if (Test-Path -LiteralPath $logsPath) {
-            if (-not $includeLogs) {
-                Show-WinUtilMessage `
-                    -Message "يوجد ملف سجلات مسبقًا في:`n$logsPath`n`nاختر اسمًا آخر للتقرير أو اختر تضمين السجلات واستبدال الملف الموجود." `
-                    -Title "تقرير بيئة النظام" -Button "OK" -Icon "Warning" | Out-Null
-                return
-            }
-
-            $replaceLogs = (Show-WinUtilMessage `
-                -Message "يوجد ملف سجلات مسبقًا في:`n$logsPath`n`nهل تريد استبداله؟" `
-                -Title "تقرير بيئة النظام" -Button "YesNo" -Icon "Warning") -eq "Yes"
-            if (-not $replaceLogs) {
-                return
-            }
-        }
-
-        # Registry reads across every tweak/toggle and the log bundle's file read add up to a
-        # couple of seconds, so the job layer keeps the Settings handler responsive and owns the
-        # progress, taskbar state, logging, and error reporting.
-        Start-WinUtilJob -Name "EnvironmentReport" -Description "تصدير تقرير بيئة النظام" -Parameters @{
-            JsonPath = $jsonPath
-            LogsPath = $logsPath
-            IncludeLogs = $includeLogs
-        } -ScriptBlock {
-            param($JsonPath, $LogsPath, $IncludeLogs)
-
-            Step-WinUtilJob -Status "جارٍ جمع تقرير بيئة النظام" -Percent 10
-            $report = Get-WinUtilEnvironmentReport
-            $json = $report | ConvertTo-Json -Depth 6
-
-            if ($IncludeLogs) {
-                Step-WinUtilJob -Status "جارٍ جمع سجلات WinUtil الأخيرة" -Percent 60
-                $logs = Get-WinUtilRecentLogs
-            }
-
-            Step-WinUtilJob -Status "جارٍ كتابة تقرير بيئة النظام" -Percent 80
-            Write-WinUtilEnvironmentReportExport -JsonPath $JsonPath -Json $json `
-                -LogsPath $LogsPath -Logs $logs -IncludeLogs:$IncludeLogs
-
-            Write-WinUtilLog -Component "EnvironmentReport" -Message "Environment report exported to $JsonPath."
-            Step-WinUtilJob -Status "اكتمل تصدير تقرير بيئة النظام" -Percent 100
-        }
-    } catch {
-        Write-WinUtilLog -Component "EnvironmentReport" -Level "ERROR" -Message "Environment report export failed: $($_.Exception.Message)"
-        Show-WinUtilMessage -Message "تعذّر تصدير تقرير بيئة النظام. $($_.Exception.Message)" `
-            -Title "تقرير بيئة النظام" -Button "OK" -Icon "None" | Out-Null
-    }
-}
-
-function Invoke-WPFFeatureInstall {
-    <#
-
-    .SYNOPSIS
-        Installs selected Windows Features
-
-    #>
-
-    if ($null -eq $sync.selectedFeatures -or $sync.selectedFeatures.Count -eq 0) {
-        Show-WinUtilMessage -Message "لم تحدد أي ميزة من ميزات ويندوز" -Title "WinUtil" -Button "OK" -Icon "Warning"
-        return
-    }
-
-    Start-WinUtilJob -Name "Features" -Description "تثبيت ميزات ويندوز" -Parameters @{
-        Features = @($sync.selectedFeatures)
-    } -ScriptBlock {
-        param($Features)
-
-        $total = @($Features).Count
-        $completed = 0
-
-        foreach ($feature in $Features) {
-            $completed++
-            Step-WinUtilJob -Status "جارٍ تثبيت $feature ($completed/$total)" -Percent ([int]((($completed - 1) / $total) * 100))
-            Measure-WinUtilStep -Scope "Features" -Name $feature -ScriptBlock {
-                Invoke-WinUtilFeatureInstall $feature
-            }
-            Step-WinUtilJob -Status "تم تثبيت $feature ($completed/$total)" -Percent ([int](($completed / $total) * 100))
-        }
-
-        Write-Host "A reboot may be required."
-    }
-}
-
-function Invoke-WPFFixesNetwork {
-    netsh winsock reset
-    netsh int ip reset
-    Write-Host "Network Configuration has been Reset. Please restart your computer."
-}
-
-function Invoke-WPFFixesNTPPool {
-    <#
-    .SYNOPSIS
-        Configures Windows to use pool.ntp.org for NTP synchronization
-
-    .DESCRIPTION
-        Replaces the default Windows NTP server (time.windows.com) with
-        pool.ntp.org for improved time synchronization accuracy and reliability.
-    #>
-
-    Start-Service w32time
-    w32tm /config /update /manualpeerlist:"pool.ntp.org,0x8" /syncfromflags:MANUAL
-
-    Restart-Service w32time
-    w32tm /resync
-
-}
-
-function Invoke-WPFFixesUpdate {
-
-    <#
-
-    .SYNOPSIS
-        Performs various tasks in an attempt to repair Windows Update
-
-    .DESCRIPTION
-        1. (Aggressive Only) Scans the system for corruption using the Invoke-WPFSystemRepair function
-        2. Stops Windows Update Services
-        3. Remove the QMGR Data file, which stores BITS jobs
-        4. (Aggressive Only) Renames the DataStore and CatRoot2 folders
-            DataStore - Contains the Windows Update History and Log Files
-            CatRoot2 - Contains the Signatures for Windows Update Packages
-        5. Renames the Windows Update Download Folder
-        6. Deletes the Windows Update Log
-        7. (Aggressive Only) Resets the Security Descriptors on the Windows Update Services
-        8. Reregisters the BITS and Windows Update DLLs
-        9. Removes the WSUS client settings
-        10. Resets WinSock
-        11. Gets and deletes all BITS jobs
-        12. Sets the startup type of the Windows Update Services then starts them
-        13. Forces Windows Update to check for updates
-
-    .PARAMETER Aggressive
-        If specified, the script will take additional steps to repair Windows Update that are more dangerous, take a significant amount of time, or are generally unnecessary
-
-    #>
-
-    param($Aggressive = $false)
-
-    Write-Progress -Id 0 -Activity "Repairing Windows Update" -PercentComplete 0
-    Step-WinUtilJob -State "Indeterminate"
-    Write-Host "Starting Windows Update Repair..."
-    # Wait for the first progress bar to show, otherwise the second one won't show
-    Start-Sleep -Milliseconds 200
-
-    if ($Aggressive) {
-        Invoke-WPFSystemRepair
-    }
-
-
-    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Stopping Windows Update Services..." -PercentComplete 10
-    # Stop the Windows Update Services
-    Write-Progress -Id 2 -ParentId 0 -Activity "Stopping Services" -Status "Stopping BITS..." -PercentComplete 0
-    Stop-Service -Name BITS -Force
-    Write-Progress -Id 2 -ParentId 0 -Activity "Stopping Services" -Status "Stopping wuauserv..." -PercentComplete 20
-    Stop-Service -Name wuauserv -Force
-    Write-Progress -Id 2 -ParentId 0 -Activity "Stopping Services" -Status "Stopping appidsvc..." -PercentComplete 40
-    Stop-Service -Name appidsvc -Force
-    Write-Progress -Id 2 -ParentId 0 -Activity "Stopping Services" -Status "Stopping cryptsvc..." -PercentComplete 60
-    Stop-Service -Name cryptsvc -Force
-    Write-Progress -Id 2 -ParentId 0 -Activity "Stopping Services" -Status "Completed" -PercentComplete 100
-
-
-    # Remove the QMGR Data file
-    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Renaming/Removing Files..." -PercentComplete 20
-    Write-Progress -Id 3 -ParentId 0 -Activity "Renaming/Removing Files" -Status "Removing QMGR Data files..." -PercentComplete 0
-    Remove-Item "$env:allusersprofile\Application Data\Microsoft\Network\Downloader\qmgr*.dat" -ErrorAction SilentlyContinue
-
-
-    if ($Aggressive) {
-        # Rename the Windows Update Log and Signature Folders
-        Write-Progress -Id 3 -ParentId 0 -Activity "Renaming/Removing Files" -Status "Renaming the Windows Update Log, Download, and Signature Folder..." -PercentComplete 20
-        Rename-Item $env:systemroot\SoftwareDistribution\DataStore DataStore.bak -ErrorAction SilentlyContinue
-        Rename-Item $env:systemroot\System32\Catroot2 catroot2.bak -ErrorAction SilentlyContinue
-    }
-
-    # Rename the Windows Update Download Folder
-    Write-Progress -Id 3 -ParentId 0 -Activity "Renaming/Removing Files" -Status "Renaming the Windows Update Download Folder..." -PercentComplete 20
-    Rename-Item $env:systemroot\SoftwareDistribution\Download Download.bak -ErrorAction SilentlyContinue
-
-    # Delete the legacy Windows Update Log
-    Write-Progress -Id 3 -ParentId 0 -Activity "Renaming/Removing Files" -Status "Removing the old Windows Update log..." -PercentComplete 80
-    Remove-Item $env:systemroot\WindowsUpdate.log -ErrorAction SilentlyContinue
-    Write-Progress -Id 3 -ParentId 0 -Activity "Renaming/Removing Files" -Status "Completed" -PercentComplete 100
-
-
-    if ($Aggressive) {
-        # Reset the Security Descriptors on the Windows Update Services
-        Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Resetting the WU Service Security Descriptors..." -PercentComplete 25
-        Write-Progress -Id 4 -ParentId 0 -Activity "Resetting the WU Service Security Descriptors" -Status "Resetting the BITS Security Descriptor..." -PercentComplete 0
-        Start-Process -NoNewWindow -FilePath "sc.exe" -ArgumentList "sdset", "bits", "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;AU)(A;;CCLCSWRPWPDTLOCRRC;;;PU)" -Wait
-        Write-Progress -Id 4 -ParentId 0 -Activity "Resetting the WU Service Security Descriptors" -Status "Resetting the wuauserv Security Descriptor..." -PercentComplete 50
-        Start-Process -NoNewWindow -FilePath "sc.exe" -ArgumentList "sdset", "wuauserv", "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;AU)(A;;CCLCSWRPWPDTLOCRRC;;;PU)" -Wait
-        Write-Progress -Id 4 -ParentId 0 -Activity "Resetting the WU Service Security Descriptors" -Status "Completed" -PercentComplete 100
-    }
-
-
-    # Reregister the BITS and Windows Update DLLs
-    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Reregistering DLLs..." -PercentComplete 40
-    $oldLocation = Get-Location
-    Set-Location $env:systemroot\system32
-    $i = 0
-    $DLLs = @(
-        "atl.dll", "urlmon.dll", "mshtml.dll", "shdocvw.dll", "browseui.dll",
-        "jscript.dll", "vbscript.dll", "scrrun.dll", "msxml.dll", "msxml3.dll",
-        "msxml6.dll", "actxprxy.dll", "softpub.dll", "wintrust.dll", "dssenh.dll",
-        "rsaenh.dll", "gpkcsp.dll", "sccbase.dll", "slbcsp.dll", "cryptdlg.dll",
-        "oleaut32.dll", "ole32.dll", "shell32.dll", "initpki.dll", "wuapi.dll",
-        "wuaueng.dll", "wuaueng1.dll", "wucltui.dll", "wups.dll", "wups2.dll",
-        "wuweb.dll", "qmgr.dll", "qmgrprxy.dll", "wucltux.dll", "muweb.dll", "wuwebv.dll"
-    )
-    foreach ($dll in $DLLs) {
-        Write-Progress -Id 5 -ParentId 0 -Activity "Reregistering DLLs" -Status "Registering $dll..." -PercentComplete ($i / $DLLs.Count * 100)
-        $i++
-        Start-Process -NoNewWindow -FilePath "regsvr32.exe" -ArgumentList "/s", $dll
-    }
-    Set-Location $oldLocation
-    Write-Progress -Id 5 -ParentId 0 -Activity "Reregistering DLLs" -Status "Completed" -PercentComplete 100
-
-
-    # Remove the WSUS client settings
-    if (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate") {
-        Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Removing WSUS client settings..." -PercentComplete 60
-        Write-Progress -Id 6 -ParentId 0 -Activity "Removing WSUS client settings" -PercentComplete 0
-        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate" -Name "AccountDomainSid" -ErrorAction SilentlyContinue
-        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate" -Name "PingID" -ErrorAction SilentlyContinue
-        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate" -Name "SusClientId" -ErrorAction SilentlyContinue
-        Write-Progress -Id 6 -ParentId 0 -Activity "Removing WSUS client settings" -Status "Completed" -PercentComplete 100
-    }
-
-    # Remove Group Policy Windows Update settings
-    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Removing Group Policy Windows Update settings..." -PercentComplete 60
-    Write-Progress -Id 7 -ParentId 0 -Activity "Removing Group Policy Windows Update settings" -PercentComplete 0
-    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" -Name "ExcludeWUDriversInQualityUpdate" -ErrorAction SilentlyContinue
-    Write-Host "Defaulting driver offering through Windows Update..."
-    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Device Metadata" -Name "PreventDeviceMetadataFromNetwork" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DontPromptForWindowsUpdate" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DontSearchWindowsUpdate" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DriverUpdateWizardWuSearchEnabled" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" -Name "ExcludeWUDriversInQualityUpdate" -ErrorAction SilentlyContinue
-    Write-Host "Defaulting Windows Update automatic restart..."
-    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoRebootWithLoggedOnUsers" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUPowerManagement" -ErrorAction SilentlyContinue
-    Write-Host "Clearing ANY Windows Update Policy settings..."
-    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" -Name "BranchReadinessLevel" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" -Name "DeferFeatureUpdatesPeriodInDays" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" -Name "DeferQualityUpdatesPeriodInDays" -ErrorAction SilentlyContinue
-    Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "HKCU:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "HKCU:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "HKLM:\Software\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "HKLM:\Software\Microsoft\WindowsSelfHost" -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "HKLM:\Software\Policies" -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Policies" -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Policies" -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate" -Recurse -Force -ErrorAction SilentlyContinue
-    Start-Process -NoNewWindow -FilePath "secedit" -ArgumentList "/configure", "/cfg", "$env:windir\inf\defltbase.inf", "/db", "defltbase.sdb", "/verbose" -Wait
-    Start-Process -NoNewWindow -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicyUsers" -Wait
-    Start-Process -NoNewWindow -FilePath "cmd.exe" -ArgumentList "/c RD /S /Q $env:WinDir\System32\GroupPolicy" -Wait
-    Start-Process -NoNewWindow -FilePath "gpupdate" -ArgumentList "/force" -Wait
-    Write-Progress -Id 7 -ParentId 0 -Activity "Removing Group Policy Windows Update settings" -Status "Completed" -PercentComplete 100
-
-
-    # Reset WinSock
-    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Resetting WinSock..." -PercentComplete 65
-    Write-Progress -Id 7 -ParentId 0 -Activity "Resetting WinSock" -Status "Resetting WinSock..." -PercentComplete 0
-    Start-Process -NoNewWindow -FilePath "netsh" -ArgumentList "winsock", "reset"
-    Start-Process -NoNewWindow -FilePath "netsh" -ArgumentList "winhttp", "reset", "proxy"
-    Start-Process -NoNewWindow -FilePath "netsh" -ArgumentList "int", "ip", "reset"
-    Write-Progress -Id 7 -ParentId 0 -Activity "Resetting WinSock" -Status "Completed" -PercentComplete 100
-
-
-    # Get and delete all BITS jobs
-    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Deleting BITS jobs..." -PercentComplete 75
-    Write-Progress -Id 8 -ParentId 0 -Activity "Deleting BITS jobs" -Status "Deleting BITS jobs..." -PercentComplete 0
-    Get-BitsTransfer | Remove-BitsTransfer
-    Write-Progress -Id 8 -ParentId 0 -Activity "Deleting BITS jobs" -Status "Completed" -PercentComplete 100
-
-
-    # Change the startup type of the Windows Update Services and start them
-    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Starting Windows Update Services..." -PercentComplete 90
-    Write-Progress -Id 9 -ParentId 0 -Activity "Starting Windows Update Services" -Status "Starting BITS..." -PercentComplete 0
-    Get-Service BITS | Set-Service -StartupType Manual -PassThru | Start-Service
-    Write-Progress -Id 9 -ParentId 0 -Activity "Starting Windows Update Services" -Status "Starting wuauserv..." -PercentComplete 25
-    Get-Service wuauserv | Set-Service -StartupType Manual -PassThru | Start-Service
-    Write-Progress -Id 9 -ParentId 0 -Activity "Starting Windows Update Services" -Status "Starting AppIDSvc..." -PercentComplete 50
-    # The AppIDSvc service is protected, so the startup type has to be changed in the registry
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\AppIDSvc" -Name "Start" -Value "3" # Manual
-    Start-Service AppIDSvc
-    Write-Progress -Id 9 -ParentId 0 -Activity "Starting Windows Update Services" -Status "Starting CryptSvc..." -PercentComplete 75
-    Get-Service CryptSvc | Set-Service -StartupType Manual -PassThru | Start-Service
-    Write-Progress -Id 9 -ParentId 0 -Activity "Starting Windows Update Services" -Status "Completed" -PercentComplete 100
-
-
-    # Force Windows Update to check for updates
-    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Forcing discovery..." -PercentComplete 95
-    Write-Progress -Id 10 -ParentId 0 -Activity "Forcing discovery" -Status "Forcing discovery..." -PercentComplete 0
-    try {
-        (New-Object -ComObject Microsoft.Update.AutoUpdate).DetectNow()
-    } catch {
-        Write-WinUtilLog -Level "ERROR" -Component "Updates" -Message "Failed to create Windows Update COM object: $_"
-        Write-Warning "Failed to create Windows Update COM object: $_"
-    }
-    Start-Process -NoNewWindow -FilePath "wuauclt" -ArgumentList "/resetauthorization", "/detectnow"
-    Write-Progress -Id 10 -ParentId 0 -Activity "Forcing discovery" -Status "Completed" -PercentComplete 100
-    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Status "Completed" -PercentComplete 100
-
-    Show-WinUtilMessage -Message "تم تحميل الإعدادات الافتراضية.`n يرجى إعادة تشغيل الكمبيوتر" -Title "إعادة ضبط Windows Update" -Button "OK" -Icon "Information" | Out-Null
-
-    # Remove the progress bars
-    Write-Progress -Id 0 -Activity "Repairing Windows Update" -Completed
-    Write-Progress -Id 1 -Activity "Scanning for corruption" -Completed
-    Write-Progress -Id 2 -Activity "Stopping Services" -Completed
-    Write-Progress -Id 3 -Activity "Renaming/Removing Files" -Completed
-    Write-Progress -Id 4 -Activity "Resetting the WU Service Security Descriptors" -Completed
-    Write-Progress -Id 5 -Activity "Reregistering DLLs" -Completed
-    Write-Progress -Id 6 -Activity "Removing Group Policy Windows Update settings" -Completed
-    Write-Progress -Id 7 -Activity "Resetting WinSock" -Completed
-    Write-Progress -Id 8 -Activity "Deleting BITS jobs" -Completed
-    Write-Progress -Id 9 -Activity "Starting Windows Update Services" -Completed
-    Write-Progress -Id 10 -Activity "Forcing discovery" -Completed
-}
-
-function Invoke-WPFFixesWinget {
-
-    <#
-
-    .SYNOPSIS
-        Fixes WinGet by running `choco install winget`
-    .DESCRIPTION
-        BravoNorris for the fantastic idea of a button to reinstall WinGet
-    #>
-
-    Step-WinUtilJob -Status "جارٍ إصلاح WinGet" -State "Indeterminate"
-    Install-WinUtilWinget -Force
-}
-
-function Invoke-WPFGetInstalled {
-    <#
-    .SYNOPSIS
-        Detects what is already installed or applied and ticks the matching boxes
-
-    .PARAMETER checkbox
-        Indicates whether to check for installed 'winget' programs or applied 'tweaks'
-
-    #>
-    param($checkbox)
-
-    if (($sync.ChocoRadioButton.IsChecked -eq $false) -and ((Test-WinUtilPackageManager -winget) -eq "not-installed") -and $checkbox -eq "winget") {
-        return
-    }
-
-    Start-WinUtilJob -Name "Detect installed" -Description "التحقق مما هو مثبّت" -Parameters @{
-        Checkbox = $checkbox
-        ManagerPreference = $sync.preferences.packagemanager
-    } -ScriptBlock {
-        param($Checkbox, $ManagerPreference)
-
-        Step-WinUtilJob -Status "جارٍ التحقق مما هو مثبّت" -State "Indeterminate"
-
-        $found = @()
-        if ($Checkbox -eq "winget") {
-            $source = if ($ManagerPreference -eq "Choco") { "choco" } else { $Checkbox }
-            $found = @(Invoke-WinUtilCurrentSystem -CheckBox $source)
-        } elseif ($Checkbox -eq "tweaks") {
-            $found = @(Invoke-WinUtilCurrentSystem -CheckBox $Checkbox)
-        }
-
-        Write-WinUtilLog -Component "Install" -Message "Detected $($found.Count) existing item(s) for $Checkbox."
-
-        # Ticking boxes touches the controls, so it happens on the interface thread
-        Invoke-WPFUIThread -Parameters @{ Checkbox = $Checkbox; Found = $found } -ScriptBlock {
-            param($Checkbox, $Found)
-
-            if ($Checkbox -eq "winget") {
-                foreach ($name in $Found) {
-                    if (-not $sync.selectedApps.Contains($name)) {
-                        $sync.selectedApps.Add($name)
-                    }
-                }
-                Reset-WPFCheckBoxes -checkboxfilterpattern "WPFInstall*"
-            } else {
-                foreach ($name in $Found) {
-                    $sync.$name.ischecked = $true
-                }
-            }
-        }
-    }
-}
-
-function Invoke-WPFImpex {
-    <#
-
-    .SYNOPSIS
-        Handles importing and exporting of the checkboxes checked for the tweaks section
-
-    .PARAMETER type
-        Indicates whether to 'import' or 'export'
-
-    .PARAMETER checkbox
-        The checkbox to export to a file or apply the imported file to
-
-    .EXAMPLE
-        Invoke-WPFImpex -type "export"
-
-    #>
-    param(
-        $type,
-        $Config = $null,
-
-        # Add to the current selection instead of replacing it. Used when a preset has already
-        # set a baseline that the imported file is meant to extend.
-        [switch]$Merge,
-
-        # Headless runs cannot show a dialog and must fail rather than applying a partial request.
-        [switch]$ThrowOnError
-    )
-
-    function ConfigDialog {
-        if (!$Config) {
-            switch ($type) {
-                "export" { $FileBrowser = New-Object System.Windows.Forms.SaveFileDialog }
-                "import" { $FileBrowser = New-Object System.Windows.Forms.OpenFileDialog }
-            }
-            $FileBrowser.InitialDirectory = [Environment]::GetFolderPath('Desktop')
-            $FileBrowser.Filter = "JSON Files (*.json)|*.json"
-            $FileBrowser.ShowDialog() | Out-Null
-
-            if ($FileBrowser.FileName -eq "") {
-                return $null
-            } else {
-                return $FileBrowser.FileName
-            }
-        } else {
-            return $Config
-        }
-    }
-
-    switch ($type) {
-        "export" {
-            try {
-                $Config = ConfigDialog
-                if ($Config) {
-                    $allConfs = ($sync.selectedApps + $sync.selectedTweaks + $sync.selectedToggles + $sync.selectedFeatures + $sync.selectedAppx) | ForEach-Object { [string]$_ }
-                    if (-not $allConfs) {
-                        Show-WinUtilMessage -Message (
-                            "لم تحدد أي إعدادات لتصديرها. حدد تطبيقًا أو تحسينًا أو مفتاح تبديل أو ميزة أو حزمة AppX واحدة على الأقل قبل التصدير."
-                        ) -Title "لا يوجد ما يُصدَّر" -Button "OK" -Icon "Warning" | Out-Null
-                        return
-                    }
-                    $jsonFile = $allConfs | ConvertTo-Json
-                    $jsonFile | Out-File $Config -Force
-                    "iex ""& { `$([Text.Encoding]::UTF8.GetString((New-Object Net.WebClient).DownloadData('https://raw.githubusercontent.com/wasv3zo-cloud/winutil-ar/release/winutil.ps1')).TrimStart([char]0xFEFF)) } -Config '$Config'""" | Set-Clipboard
-                }
-            } catch {
-                Write-Error "An error occurred while exporting: $_"
-            }
-        }
-        "import" {
-            try {
-                $Config = ConfigDialog
-                if ($Config) {
-                    try {
-                        if ($Config -match '^https?://') {
-                            $jsonFile = (Invoke-WebRequest "$Config" -ErrorAction Stop).Content | ConvertFrom-Json
-                        } else {
-                            $jsonFile = Get-Content $Config -ErrorAction Stop | ConvertFrom-Json
-                        }
-                    } catch {
-                        $message = "Failed to load the JSON file from the specified path or URL: $_"
-                        if ($ThrowOnError) { throw $message }
-                        Write-Error $message
-                        return
-                    }
-                    $isLegacyConfig = $jsonFile -is [System.Management.Automation.PSCustomObject] -and
-                        $null -ne $jsonFile.PSObject.Properties["Install"] -and
-                        $null -ne $jsonFile.PSObject.Properties["WPFInstall"]
-                    if ($isLegacyConfig) {
-                        Write-WinUtilLog -Component "Impex" -Message "Detected legacy WinUtil config structure; flattening import object."
-                        # Legacy exports stored checkbox keys in WPFInstall and duplicated package
-                        # source metadata in Install. Current package IDs come from the app catalog,
-                        # so only the selection-key properties are restored.
-                        $flattenedJson = @(
-                            foreach ($property in $jsonFile.PSObject.Properties) {
-                                if ($property.Name -notmatch '^WPF(?:Install|Tweaks|Toggle|Feature|Appx)') {
-                                    continue
-                                }
-
-                                foreach ($selection in @($property.Value)) {
-                                    if ($selection -is [string] -and -not [string]::IsNullOrWhiteSpace($selection)) {
-                                        $selection
-                                    }
-                                }
-                            }
-                        )
-                    } else {
-                        # New style config: flat array of strings
-                        $flattenedJson = $jsonFile
-                    }
-
-                    if (-not $flattenedJson) {
-                        Show-WinUtilMessage -Message "الملف المحدد لا يحتوي على إعدادات لاستيرادها. لم تُجرَ أي تغييرات." -Title "ملف إعدادات فارغ" -Button "OK" -Icon "Warning" | Out-Null
-                        return
-                    }
-
-                    # Replace unless this import is merging onto something already selected,
-                    # which the headless path does when it is given a preset and a config
-                    $replaceMode = @{}
-                    if (-not $Merge) { $replaceMode["Replace"] = $true }
-
-                    # Modern configs stay strict. Legacy configs can reference entries that no
-                    # longer exist, so restore supported selections and report the retired keys.
-                    if ($isLegacyConfig) {
-                        $skippedSelections = @(Update-WinUtilSelections -flatJson $flattenedJson @replaceMode -SkipUnknown)
-
-                        if ($skippedSelections.Count -gt 0) {
-                            $skippedSummary = $skippedSelections -join ", "
-                            Write-WinUtilLog -Component "Impex" -Level "WARN" -Message "Skipped unsupported legacy selections: $skippedSummary"
-                        }
-
-                        if ($skippedSelections.Count -eq @($flattenedJson).Count) {
-                            if ($sync.Form) {
-                                Show-WinUtilMessage -Message "ملف الإعدادات القديم هذا لا يحتوي على إعدادات يدعمها هذا الإصدار من WinUtil. لم تُجرَ أي تغييرات." -Title "ملف إعدادات قديم غير مدعوم" -Icon "Warning" | Out-Null
-                            }
-                            return
-                        }
-
-                        if ($skippedSelections.Count -gt 0) {
-                            $skippedDisplay = @($skippedSelections | Select-Object -First 10) -join ", "
-                            if ($skippedSelections.Count -gt 10) {
-                                $skippedDisplay += "`n...و$($skippedSelections.Count - 10) أخرى. راجع سجل WinUtil للتفاصيل."
-                            }
-                            if ($sync.Form) {
-                                Show-WinUtilMessage -Message "استُوردت الإعدادات المدعومة، وتم تخطي الإعدادات المتقاعدة التالية:`n`n$skippedDisplay" -Title "استيراد جزئي لملف إعدادات قديم" -Icon "Warning" | Out-Null
-                            }
-                        }
-                    } else {
-                        # Build and validate every imported selection before replacing the current
-                        # state. This keeps a malformed config from leaving partial selections behind.
-                        Update-WinUtilSelections -flatJson $flattenedJson @replaceMode
-                    }
-
-                    if ($sync.Form) {
-                        Reset-WPFCheckBoxes -doToggles $true
-                    }
-                }
-            } catch {
-                if ($ThrowOnError) { throw }
-                Write-Error "An error occurred while importing: $_"
-            }
-        }
-    }
-}
-
-function Invoke-WPFInstall {
-    <#
-    .SYNOPSIS
-        Installs the selected programs using winget, if one or more of the selected programs are already installed on the system, winget will try and perform an upgrade if there's a newer version to install.
-    #>
-    param(
-        [Parameter(Mandatory = $false)]
-        [PSObject[]]$PackagesToInstall = $($sync.selectedApps | Foreach-Object { $sync.configs.applicationsHashtable.$_ })
-    )
-
-    if ($PackagesToInstall.Count -eq 0) {
-        $WarningMsg = "يرجى تحديد البرامج التي تريد تثبيتها أو تحديثها."
-        Show-WinUtilMessage -Message $WarningMsg -Title "WinUtil" -Button "OK" -Icon "Warning"
-        return
-    }
-
-    $ManagerPreference = $sync.preferences.packagemanager
-    Write-WinUtilLog -Component "Install" -Message "Install requested for $(@($PackagesToInstall).Count) selected package(s) using preference: $ManagerPreference"
-    $packageSummary = Get-WinUtilPackageLogSummary -Packages $PackagesToInstall -Preference $ManagerPreference
-    Write-WinUtilLog -Component "Install" -Message "Install selected package(s): $($packageSummary -join '; ')"
-
-    Start-WinUtilJob -Name "Install" -Description "تثبيت التطبيقات" -DisableAppList -Parameters @{
-        PackagesToInstall = $PackagesToInstall
-        ManagerPreference = $ManagerPreference
-    } -ScriptBlock {
-        param($PackagesToInstall, $ManagerPreference)
-
-        $packagesSorted = Get-WinUtilSelectedPackages -PackageList $PackagesToInstall -Preference $ManagerPreference
-        $packagesWinget = $packagesSorted['Winget']
-        $packagesChoco = $packagesSorted['Choco']
-        $totalPackages = @($packagesWinget).Count + @($packagesChoco).Count
-        $completedPackages = 0
-        Write-WinUtilLog -Component "Install" -Message "Install package manager split: winget=$(@($packagesWinget).Count), choco=$(@($packagesChoco).Count)"
-
-        $results = @()
-
-        if ($packagesWinget.Count -gt 0 -and $packagesWinget -ne "0") {
-            Install-WinUtilWinget
-            foreach ($program in $packagesWinget) {
-                $position = $completedPackages + 1
-                Step-WinUtilJob -Status "جارٍ تثبيت $program ($position/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
-
-                $results += Measure-WinUtilStep -Scope "Install" -Name "winget $program" -ScriptBlock {
-                    Install-WinUtilProgramWinget -Action Install -Programs @($program)
-                }
-                $completedPackages++
-                Step-WinUtilJob -Status "تم تثبيت $program ($completedPackages/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
-            }
-        }
-
-        if ($packagesChoco.Count -gt 0) {
-            $position = $completedPackages + 1
-            Step-WinUtilJob -Status "جارٍ تثبيت حزم Chocolatey ($position/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
-
-            Install-WinUtilChoco
-            $chocoBase = [int](($completedPackages / $totalPackages) * 100)
-            $chocoSpan = [int]((@($packagesChoco).Count / $totalPackages) * 100)
-            $results += Measure-WinUtilStep -Scope "Install" -Name "choco $($packagesChoco -join ', ')" -ScriptBlock {
-                Install-WinUtilProgramChoco -Action Install -Programs $packagesChoco -ProgressBase $chocoBase -ProgressSpan $chocoSpan
-            }
-            $completedPackages += @($packagesChoco).Count
-            Step-WinUtilJob -Status "تم تثبيت حزم Chocolatey ($completedPackages/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
-        }
-
-        Complete-WinUtilPackageRun -Action "Install" -Results $results
-    }
-}
-
-function Invoke-WPFInstallUpgrade {
-    <#
-
-    .SYNOPSIS
-        Upgrades every package that has an update available
-
-    .DESCRIPTION
-        Runs on the worker like any other package work, so the progress bar, the taskbar item
-        and the log report it the same way an install does.
-
-    #>
-
-    # The radio button belongs to the interface thread; this body runs on a worker. The
-    # preference it maintains carries the same answer and is what every other workflow reads.
-    if ($sync.preferences.packagemanager -eq "Choco") {
-        Step-WinUtilJob -Status "جارٍ تجهيز Chocolatey" -State "Indeterminate"
-        Install-WinUtilChoco
-
-        Write-WinUtilLog -Component "Install" -Message "Upgrading all Chocolatey packages."
-        Step-WinUtilJob -Status "جارٍ تحديث جميع حزم Chocolatey" -State "Indeterminate"
-
-        # "all" is choco's own name for every installed package, so this stays one call
-        $result = Measure-WinUtilStep -Scope "Install" -Name "choco upgrade all" -ScriptBlock {
-            Install-WinUtilProgramChoco -Action Upgrade -Programs @("all")
-        }
-        Complete-WinUtilPackageRun -Action "Upgrade" -Results @($result)
-        return
-    }
-
-    Step-WinUtilJob -Status "جارٍ تجهيز WinGet" -State "Indeterminate"
-    Install-WinUtilWinget
-
-    Write-WinUtilLog -Component "Install" -Message "Upgrading all WinGet packages."
-    Step-WinUtilJob -Status "جارٍ تحديث جميع حزم WinGet" -State "Indeterminate"
-
-    # Let WinGet resolve every package against its recorded source. Parsing its localized,
-    # width-truncated table loses identifiers and source information.
-    $result = Measure-WinUtilStep -Scope "Install" -Name "winget upgrade --all" -ScriptBlock {
-        Install-WinUtilProgramWinget -Action Upgrade -Programs @("all")
-    }
-    Complete-WinUtilPackageRun -Action "Upgrade" -Results @($result)
-}
-
-function Invoke-WPFOOSU {
-    Start-WinUtilJob -Name "OOSU" -Description "تنزيل O&O ShutUp10++" -Parameters @{
-        DownloadPath = Join-Path $sync.winutildir "ooshutup10.exe"
-    } -ScriptBlock {
-        param($DownloadPath)
-
-        Write-WinUtilLog -Component "OOSU" -Message "Downloading O&O ShutUp10++."
-
-        Save-WinUtilFile -Uri "https://dl5.oo-software.com/files/ooshutup10/OOSU10.exe" -DestinationPath $DownloadPath -ProgressCallback {
-            param($percent)
-            Step-WinUtilJob -Status "جارٍ تنزيل O&O ShutUp10++ ($percent%)" -Percent $percent
-        }
-
-        Step-WinUtilJob -Status "جارٍ تشغيل O&O ShutUp10++" -Percent 100
-        Start-Process -FilePath $DownloadPath
-        Write-WinUtilLog -Component "OOSU" -Message "O&O ShutUp10++ launched."
-    }
-}
-
-function Invoke-WPFPanelAutologin {
-    $autologonPath = Join-Path $sync.winutildir "autologin.exe"
-    Invoke-WebRequest -Uri https://live.sysinternals.com/Autologon.exe -OutFile $autologonPath
-    Start-Process -FilePath $autologonPath -ArgumentList /accepteula
-}
-
-function Invoke-WPFPopup {
-    param (
-        [ValidateSet("Show", "Hide", "Toggle")]
-        [string]$Action = "",
-
-        [string[]]$Popups = @(),
-
-        [ValidateScript({
-            $invalid = $_.GetEnumerator() | Where-Object { $_.Value -notin @("Show", "Hide", "Toggle") }
-            if ($invalid) {
-                throw "Found invalid Popup-Action pair(s): " + ($invalid | ForEach-Object { "$($_.Key) = $($_.Value)" } -join "; ")
-            }
-            $true
-        })]
-        [hashtable]$PopupActionTable = @{}
-    )
-
-    if (-not $PopupActionTable.Count -and (-not $Action -or -not $Popups.Count)) {
-        throw "Provide either 'PopupActionTable' or both 'Action' and 'Popups'."
-    }
-
-    if ($PopupActionTable.Count -and ($Action -or $Popups.Count)) {
-        throw "Use 'PopupActionTable' on its own, or 'Action' with 'Popups'."
-    }
-
-    # Collect popups and actions
-    $PopupsToProcess = if ($PopupActionTable.Count) {
-        $PopupActionTable.GetEnumerator() | ForEach-Object { [PSCustomObject]@{ Name = "$($_.Key)Popup"; Action = $_.Value } }
-    } else {
-        $Popups | ForEach-Object { [PSCustomObject]@{ Name = "$_`Popup"; Action = $Action } }
-    }
-
-    $PopupsNotFound = @()
-
-    # Apply actions
-    foreach ($popupEntry in $PopupsToProcess) {
-        $popupName = $popupEntry.Name
-
-        if (-not $sync.$popupName) {
-            $PopupsNotFound += $popupName
-            continue
-        }
-
-        $sync.$popupName.IsOpen = switch ($popupEntry.Action) {
-            "Show" { $true }
-            "Hide" { $false }
-            "Toggle" { -not $sync.$popupName.IsOpen }
-        }
-    }
-
-    if ($PopupsNotFound.Count -gt 0) {
-        throw "Could not find the following popups: $($PopupsNotFound -join ', ')"
-    }
-}
-
-function Invoke-WPFPresets {
-    <#
-
-    .SYNOPSIS
-        Sets the checkboxes in winutil to the given preset
-
-    .PARAMETER preset
-        The preset to set the checkboxes to
-
-    .PARAMETER imported
-        If the preset is imported from a file, defaults to false
-
-    .PARAMETER checkboxfilterpattern
-        The Pattern to use when filtering through CheckBoxes, defaults to "**"
-
-    #>
-
-    param (
-        [Parameter(position=0)]
-        [Array]$preset = $null,
-
-        [Parameter(position=1)]
-        [bool]$imported = $false,
-
-        [Parameter(position=2)]
-        [string]$checkboxfilterpattern = "**"
-    )
-
-    if ($imported -eq $true) {
-        $CheckBoxesToCheck = $preset
-    } else {
-        $CheckBoxesToCheck = $sync.configs.preset.$preset
-    }
-
-    # clear out the filtered pattern so applying a preset replaces the current
-    # state rather than merging with it
-    switch ($checkboxfilterpattern) {
-        "WPFTweak*" { $sync.selectedTweaks = [System.Collections.Generic.List[string]]::new() }
-        "WPFInstall*" { $sync.selectedApps = [System.Collections.Generic.List[string]]::new() }
-        "WPFAppx*" { $sync.selectedAppx = [System.Collections.Generic.List[string]]::new() }
-        "WPFFeature*" { $sync.selectedFeatures = [System.Collections.Generic.List[string]]::new() }
-        "WPFToggle*" { $sync.selectedToggles = [System.Collections.Generic.List[string]]::new() }
-        default {}
-    }
-
-    if ($preset) {
-        Update-WinUtilSelections -flatJson $CheckBoxesToCheck
-    }
-
-    Reset-WPFCheckBoxes -doToggles $false -checkboxfilterpattern $checkboxfilterpattern
-
-    if ($checkboxfilterpattern -eq "WPFTweak*") {
-        Update-WinUtilTweakCount | Out-Null
-    }
-
-    # A preset can tick tweaks inside a folded category; open it so nothing is selected out of sight
-    foreach ($header in @($sync.CollapsibleTweakHeaders)) {
-        if ($null -ne $header -and $header.Tag.Collapsed) {
-            Set-WinUtilCategoryCollapsed -Label $header -Collapsed $true -ExpandIfSelected
-        }
-    }
-}
-
-function Invoke-WPFRunspace {
-
-    <#
-
-    .SYNOPSIS
-        Creates and invokes a runspace using the given scriptblock and argumentlist
-
-    .PARAMETER ScriptBlock
-        The scriptblock to invoke in the runspace
-
-    .PARAMETER ArgumentList
-        A list of arguments to pass to the runspace
-
-    .PARAMETER ParameterList
-        A list of named parameters that should be provided.
-    .EXAMPLE
-        Invoke-WPFRunspace `
-            -ScriptBlock $sync.ScriptsInstallPrograms `
-            -ArgumentList "Installadvancedip,Installbitwarden" `
-
-        Invoke-WPFRunspace`
-            -ScriptBlock $sync.ScriptsInstallPrograms `
-            -ParameterList @(("PackagesToInstall", @("Installadvancedip,Installbitwarden")),("ChocoPreference", $true))
-    #>
-
-    [CmdletBinding()]
-    [OutputType([System.IAsyncResult])]
-    Param (
-        $ScriptBlock,
-        $ArgumentList,
-        $ParameterList
-    )
-
-    $poolLock = Get-WinUtilRunspacePoolLock
-    [System.Threading.Monitor]::Enter($poolLock)
-    try {
-        # The lifecycle lock keeps the final shutdown check, invocation start, and registration
-        # atomic with pool closure. Otherwise shutdown can miss a newly started invocation.
-        if ($sync.ShuttingDown) {
-            Write-WinUtilLog -Level "WARN" -Component "UI" -Message "Refused to start background work, WinUtil is closing."
-            return $null
-        }
-
-        Initialize-WinUtilRunspacePool | Out-Null
-
-        # Create a PowerShell instance
-        $powershell = [powershell]::Create()
-
-        # Add Scriptblock and Arguments to runspace
-        [void]$powershell.AddScript($ScriptBlock)
-        [void]$powershell.AddArgument($ArgumentList)
-
-        foreach ($parameter in $ParameterList) {
-            # A single pair written as @(("Name", $value)) collapses to a two element array, and
-            # indexing it then yields the first two characters of the name
-            if ($parameter -is [string] -or $parameter.Count -ne 2) {
-                throw "ParameterList takes name and value pairs. Received '$parameter'. A single pair needs a leading comma: -ParameterList (,('Name', `$value))"
-            }
-            [void]$powershell.AddParameter($parameter[0], $parameter[1])
-        }
-
-        $powershell.RunspacePool = $sync.runspace
-
-        # Track before starting so no exception after BeginInvoke can make the caller release its
-        # job token while work is actually running. Cleanup registration is best-effort and has a
-        # background-thread fallback; it must never synchronously wait on a worker from the WPF
-        # dispatcher because the worker's finalizer may be waiting to restore UI state.
-        try {
-            Register-WinUtilActiveShell -PowerShell $powershell
-        } catch {
-            $powershell.Dispose()
-            throw
-        }
-        $handle = $null
-        try {
-            $handle = $powershell.BeginInvoke()
-        } catch {
-            $startError = $_
-            $sync.ActiveShells.Remove($powershell)
-            $powershell.Dispose()
-            throw $startError
-        }
-
-        try {
-            Register-WinUtilRunspaceCleanup -PowerShell $powershell -Handle $handle
-        } catch {
-            # The worker remains tracked and owns its job token. Treat it as scheduled so another
-            # system-changing job cannot start beside it; later work/shutdown can reclaim the shell.
-            Write-WinUtilLog -Level "WARN" -Component "UI" -Message "Could not register background cleanup: $($_.Exception.Message)"
-        }
-
-        return $handle
-    } finally {
-        [System.Threading.Monitor]::Exit($poolLock)
-    }
-}
-
-function Invoke-WPFSelectedCheckboxesUpdate ($type, $checkboxName) {
-    $listName = switch -Regex ($checkboxName) {
-        '^WPFInstall' { 'selectedApps' }
-        '^WPFTweaks'  { 'selectedTweaks' }
-        '^WPFToggle'  { 'selectedToggles' }
-        '^WPFFeature' { 'selectedFeatures' }
-        '^WPFAppx'    { 'selectedAppx' }
-    }
-
-    $selectionChanged = $false
-    if ($type -eq "Add") {
-        if (-not $sync.$listName.Contains($checkboxName)) {
-            $sync.$listName.Add($checkboxName)
-            $selectionChanged = $true
-        }
-    } else {
-        $selectionChanged = $sync.$listName.Remove($checkboxName)
-    }
-
-    if ($listName -eq "selectedTweaks" -and $selectionChanged) {
-        Update-WinUtilTweakCount | Out-Null
-    }
-
-    if ($listName -eq "selectedApps" -and $selectionChanged) {
-        $sync.WPFselectedAppsButton.Content = "التطبيقات المحددة: $($sync.selectedApps.Count)"
-        $sync.selectedAppsstackPanel.Children.Clear()
-        $sync.selectedApps | Sort-Object | ForEach-Object {
-            Add-SelectedAppsMenuItem -name $sync.configs.applicationsHashtable.$_.Content -key $_
-        }
-    }
-}
-
-function Invoke-WPFSSHServer {
-    <#
-
-    .SYNOPSIS
-        Installs and starts the OpenSSH Server
-
-  #>
-
-    Invoke-WinUtilSSHServer
-}
-
-function Invoke-WPFSystemRepair {
-    <#
-    .SYNOPSIS
-        Checks for system corruption using SFC, and DISM
-        Checks for disk failure using Chkdsk
-
-    .DESCRIPTION
-        1. Chkdsk - Checks for disk errors, which can cause system file corruption and notifies of early disk failure
-        2. SFC - scans protected system files for corruption and fixes them
-        3. DISM - Repair a corrupted Windows operating system image
-    #>
-
-    # SuccessCodes maps the non-zero exits a step treats as success to what they mean. The codes
-    # are per step because the same number means different things: 1 and 2 are ordinary chkdsk
-    # outcomes, while 1 from sfc is a failure, and 3010 is a repaired image from DISM only.
-    $steps = @(
-        @{
-            Label = "Checking the disk for errors"
-            Arguments = "/c chkdsk /scan /perf"
-            # 3 is left out: the disk could not be checked, or has errors an online scan cannot
-            # fix, and the steps after this one are not worth running on a disk in that state.
-            SuccessCodes = @{
-                1 = "errors were found and fixed"
-                2 = "cleanup was performed, or was skipped because /f was not given"
-            }
-        },
-        @{
-            Label = "Scanning protected system files"
-            Arguments = "/c sfc /scannow"
-            SuccessCodes = @{}
-        },
-        @{
-            Label = "Repairing the Windows image"
-            Arguments = "/c dism /online /cleanup-image /restorehealth"
-            SuccessCodes = @{
-                3010 = "a restart is needed for the repair to take effect"
-            }
-        }
-    )
-
-    $completed = 0
-    foreach ($step in $steps) {
-        Step-WinUtilJob -Status "$($step.Label) ($($completed + 1)/$($steps.Count))" -Percent ([int](($completed / $steps.Count) * 100))
-        Write-WinUtilLog -Component "SystemRepair" -Message $step.Label
-        # Start-Process does not throw on a nonzero exit, so without this a failed chkdsk, sfc
-        # or dism run would still be reported as a completed repair
-        $process = Start-Process cmd.exe -ArgumentList $step.Arguments -NoNewWindow -Wait -PassThru
-        $exitCode = $process.ExitCode
-
-        if ($exitCode -ne 0) {
-            if ($step.SuccessCodes.ContainsKey($exitCode)) {
-                # Start-WinUtilJob records WarningRecord output in both the session log and the
-                # job result, so accepted nonzero outcomes cannot finish with a green checkmark.
-                Write-Warning "$($step.Label) finished: $($step.SuccessCodes[$exitCode])."
-            } else {
-                throw "$($step.Label) failed with exit code $exitCode."
-            }
-        }
-
-        $completed++
-    }
-}
-
-function Invoke-WPFTab {
-
-    <#
-
-    .SYNOPSIS
-        Sets the selected tab to the tab that was clicked
-
-    .PARAMETER ClickedTab
-        The name of the tab that was clicked
-
-    .PARAMETER Yield
-        Build the tab's content in slices, letting the interface answer between them. For the
-        tab opened at startup, where the window is already on screen and filling in gradually
-        reads better than holding the thread until it is complete.
-
-    #>
-
-    Param (
-        [Parameter(Mandatory,position=0)]
-        [string]$ClickedTab,
-
-        [switch]$Yield
-    )
-
-    $tabNumber = [int]($ClickedTab -replace "WPFTab","" -replace "BT","") - 1
-
-    Measure-WinUtilStep -Scope "Tab" -Name "$ClickedTab select" -ScriptBlock {
-        $filter = Get-WinUtilVariables -Type ToggleButton | Where-Object {$psitem -like "WPFTab?BT"}
-        $sync.WPFTabNav.Items[$tabNumber].IsSelected = $true
-        ($sync.GetEnumerator()).where{$psitem.Key -in $filter} | ForEach-Object {
-            if ($ClickedTab -ne $PSItem.name) {
-                $sync[$PSItem.Name].IsChecked = $false
-            } else {
-                $sync["$ClickedTab"].IsChecked = $true
-            }
-        }
-        $sync.currentTab = $sync.WPFTabNav.Items[$tabNumber].Header
-    }
-
-    Measure-WinUtilStep -Scope "Tab" -Name "$ClickedTab content" -ScriptBlock {
-        Initialize-WinUtilTabContent -TabName $sync.currentTab -Yield:$Yield
-    }
-
-    Measure-WinUtilStep -Scope "Tab" -Name "$ClickedTab filter reset" -ScriptBlock {
-        $searchText = if ($null -ne $sync.SearchBar) { $sync.SearchBar.Text } else { "" }
-        if ($sync.currentTab -eq "Install") {
-            $selectedCategories = if ($sync.SelectedAppCategories) { $sync.SelectedAppCategories.ToArray() } else { @() }
-            Find-AppsByNameOrDescription -SearchString $searchText -Categories $selectedCategories
-        } elseif ($sync.currentTab -eq "Tweaks" -or $sync.currentTab -eq "AppX") {
-            Find-TweaksByNameOrDescription -SearchString $searchText
-        }
-    }
-
-    Measure-WinUtilStep -Scope "Tab" -Name "$ClickedTab search bar" -ScriptBlock {
-        # Show search bar in Install, Tweaks, and AppX tabs
-        $searchIcon = ($sync.Form.FindName("SearchBar").Parent.Children | Where-Object { $_ -is [System.Windows.Controls.TextBlock] -and $_.Text -eq [char]0xE721 })[0]
-        if ($tabNumber -eq 0 -or $tabNumber -eq 1 -or $tabNumber -eq 5) {
-            $sync.SearchBar.Visibility = "Visible"
-            if ($searchIcon) { $searchIcon.Visibility = "Visible" }
-        } else {
-            $sync.SearchBar.Visibility = "Collapsed"
-            if ($searchIcon) { $searchIcon.Visibility = "Collapsed" }
-            $sync.SearchBarClearButton.Visibility = "Collapsed"
-        }
-    }
-}
-
-function Invoke-WPFToggleAllCategories {
-    <#
-        .SYNOPSIS
-            Expands or collapses all categories in the Install tab
-
-        .PARAMETER Action
-            The action to perform: "Expand" or "Collapse"
-
-        .DESCRIPTION
-            This function iterates through all category containers in the Install tab
-            and expands or collapses their WrapPanels while updating the toggle button labels
-    #>
-
-    param(
-        [Parameter(Mandatory=$true)]
-        [ValidateSet("Expand", "Collapse")]
-        [string]$Action
-    )
-
-    try {
-        if ($null -eq $sync.ItemsControl) {
-            Write-Warning "ItemsControl not initialized"
-            return
-        }
-
-        $targetVisibility = if ($Action -eq "Expand") { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed }
-        $targetPrefix = if ($Action -eq "Expand") { "-" } else { "+" }
-        $sourcePrefix = if ($Action -eq "Expand") { "+" } else { "-" }
-
-        # Iterate through all items in the ItemsControl
-        $sync.ItemsControl.Items | ForEach-Object {
-            $categoryContainer = $_
-
-            # Check if this is a category container (StackPanel with children)
-            if ($categoryContainer -is [System.Windows.Controls.StackPanel] -and $categoryContainer.Children.Count -ge 2) {
-                # Get the WrapPanel (second child)
-                $wrapPanel = $categoryContainer.Children[1]
-                $wrapPanel.Visibility = $targetVisibility
-
-                # Update the label to show the correct state
-                $categoryLabel = $categoryContainer.Children[0]
-                if ($categoryLabel.Content -like "$sourcePrefix*") {
-                    $escapedSourcePrefix = [regex]::Escape($sourcePrefix)
-                    $categoryLabel.Content = $categoryLabel.Content -replace "^$escapedSourcePrefix ", "$targetPrefix "
-                }
-            }
-        }
-    }
-    catch {
-        Write-Error "Error toggling categories: $_"
-    }
-}
-
-function Invoke-WPFToggleSelections {
-    <#
-
-    .SYNOPSIS
-        Applies every selected toggle
-
-    .DESCRIPTION
-        In the window a toggle applies itself the moment it is switched, so nothing ever had to
-        apply a list of them. An imported configuration carries toggles the same way it carries
-        tweaks, and without this they would be read and then ignored.
-
-    #>
-
-    $toggles = @($sync.selectedToggles)
-
-    if ($toggles.Count -eq 0) {
-        Show-WinUtilMessage -Message "لم تحدد أي مفتاح تبديل." -Title "WinUtil" -Button "OK" -Icon "Warning" | Out-Null
-        return
-    }
-
-    Write-WinUtilLog -Component "Toggles" -Message "Toggles requested: $($toggles.Count) selected."
-
-    Start-WinUtilJob -Name "Toggles" -Description "تطبيق مفاتيح التبديل" -Parameters @{
-        Toggles = $toggles
-    } -ScriptBlock {
-        param($Toggles)
-
-        $total = [Math]::Max(@($Toggles).Count, 1)
-        $completed = 0
-
-        foreach ($toggle in $Toggles) {
-            Step-WinUtilJob -Status "جارٍ تطبيق $toggle ($($completed + 1)/$total)" -Percent ([int](($completed / $total) * 100))
-            Measure-WinUtilStep -Scope "Toggles" -Name $toggle -ScriptBlock {
-                Invoke-WinUtilTweaks $toggle
-            }
-            $completed++
-            Step-WinUtilJob -Percent ([int](($completed / $total) * 100))
-        }
-    }
-}
-
-function Invoke-WPFtweaksbutton {
-  <#
-
-    .SYNOPSIS
-        Invokes the functions associated with each group of checkboxes
-
-  #>
-
-  $Tweaks = $sync.selectedTweaks
-  $dnsProvider = $sync["WPFchangedns"].text
-  if (-not ($dnsProvider)) {
-    $dnsProvider = "Default"
-  }
-
-  if ($Tweaks.count -eq 0 -and $dnsProvider -eq "Default") {
-    Show-WinUtilMessage -Message "يرجى تحديد التحسينات التي تريد تطبيقها." -Title "WinUtil" -Button "OK" -Icon "Warning"
-    return
-  }
-
-  # A restore point is always taken before tweaks run, even when the user did not tick it,
-  # so every change WinUtil makes can be rolled back from Windows System Restore
-  $Tweaks = @($Tweaks)
-  if ($Tweaks.Count -gt 0 -and $Tweaks -notcontains "WPFTweaksRestorePoint") {
-    $Tweaks = @("WPFTweaksRestorePoint") + $Tweaks
-    Write-WinUtilLog -Component "Tweaks" -Message "Restore point added automatically before the selected tweaks."
-  }
-
-  Write-WinUtilLog -Component "Tweaks" -Message "Tweaks requested: $(@($Tweaks).Count) selected tweak(s), DNS provider: $dnsProvider"
-
-  Start-WinUtilJob -Name "Tweaks" -Description "تطبيق التحسينات" -Parameters @{
-    Tweaks = @($Tweaks)
-    DnsProvider = $dnsProvider
-  } -ScriptBlock {
-    param($Tweaks, $DnsProvider)
-
-    # The restore point has to be taken before anything else changes
-    $restorePointTweak = "WPFTweaksRestorePoint"
-    $tweaksToRun = @($Tweaks | Where-Object { $_ -ne $restorePointTweak })
-    $totalSteps = [Math]::Max(@($Tweaks).Count, 1)
-    $completedSteps = 0
-
-    # Measured before anything changes, for the before/after summary at the end
-    $snapshotBefore = Get-WinUtilSystemSnapshot
-
-    if ($Tweaks -contains $restorePointTweak) {
-      Step-WinUtilJob -Status "جارٍ إنشاء نقطة استعادة" -Percent 0
-      Write-WinUtilLog -Component "Tweaks" -Message "Creating restore point before applying selected tweaks."
-      Measure-WinUtilStep -Scope "Tweaks" -Name $restorePointTweak -ScriptBlock {
-        Invoke-WinUtilTweaks $restorePointTweak
-      }
-      $completedSteps = 1
-    }
-
-    if ($DnsProvider -ne "Default") {
-      $dnsResult = Measure-WinUtilStep -Scope "Tweaks" -Name "Set DNS to $DnsProvider" -ScriptBlock {
-        @(Set-WinUtilDNS -DNSProvider $DnsProvider)
-      }
-
-      # Carrying on after the DNS change failed leaves the machine half configured, so the run
-      # ends here and the job layer reports it
-      if (@($dnsResult)[-1] -ne $true) {
-        throw "The DNS change to $DnsProvider failed, so the remaining tweaks were not applied."
-      }
-    }
-
-    foreach ($tweak in $tweaksToRun) {
-      Step-WinUtilJob -Status "جارٍ تطبيق $tweak ($($completedSteps + 1)/$totalSteps)" -Percent ([int](($completedSteps / $totalSteps) * 100))
-      Measure-WinUtilStep -Scope "Tweaks" -Name $tweak -ScriptBlock {
-        Invoke-WinUtilTweaks $tweak
-      }
-      $completedSteps++
-      Step-WinUtilJob -Percent ([int](($completedSteps / $totalSteps) * 100))
-    }
-
-    if (@($Tweaks).Count -gt 0) {
-      $report = Format-WinUtilTweakReport -Before $snapshotBefore -After (Get-WinUtilSystemSnapshot) -Applied @($Tweaks).Count
-      Show-WinUtilMessage -Message $report -Title "نتيجة التحسينات" -Button "OK" -Icon "Information" | Out-Null
-    }
-  }
-}
-
-function Invoke-WPFUIElements {
-    <#
-    .SYNOPSIS
-        Adds UI elements to a specified Grid in the WinUtil GUI based on a JSON configuration.
-    .PARAMETER configVariable
-        The variable/link containing the JSON configuration.
-    .PARAMETER targetGridName
-        The name of the grid to which the UI elements should be added.
-    .PARAMETER columncount
-        The number of columns to be used in the Grid. If not provided, a default value is used based on the panel.
-    .EXAMPLE
-        Invoke-WPFUIElements -configVariable $sync.configs.applications -targetGridName "install" -columncount 5
-    .NOTES
-        Future me/contributor: If possible, please wrap this into a runspace to make it load all panels at the same time.
-    #>
-
-    param(
-        [Parameter(Mandatory, Position = 0)]
-        [PSCustomObject]$configVariable,
-
-        [Parameter(Mandatory, Position = 1)]
-        [string]$targetGridName,
-
-        [Parameter(Mandatory, Position = 2)]
-        [int]$columncount,
-
-        # Let the interface answer between batches of entries. Only for content nobody is
-        # waiting on: a user who just clicked the tab is better served by finishing at once.
-        [switch]$Yield
-    )
-
-    $window = $sync.form
-
-    $borderstyle = $window.FindResource("BorderStyle")
-    $HoverTextBlockStyle = $window.FindResource("HoverTextBlockStyle")
-    $ColorfulToggleSwitchStyle = $window.FindResource("ColorfulToggleSwitchStyle")
-    $ToggleButtonStyle = $window.FindResource("ToggleButtonStyle")
-
-    if (!$borderstyle -or !$HoverTextBlockStyle -or !$ColorfulToggleSwitchStyle) {
-        throw "Failed to retrieve Styles using 'FindResource' from main window element."
-    }
-
-    $targetGrid = $window.FindName($targetGridName)
-
-    if (!$targetGrid) {
-        throw "Failed to retrieve Target Grid by name, provided name: $targetGrid"
-    }
-
-    # Clear existing ColumnDefinitions and Children
-    $targetGrid.ColumnDefinitions.Clear() | Out-Null
-    $targetGrid.Children.Clear() | Out-Null
-
-    # Add ColumnDefinitions to the target Grid
-    for ($i = 0; $i -lt $columncount; $i++) {
-        $colDef = New-Object Windows.Controls.ColumnDefinition
-        $colDef.Width = New-Object System.Windows.GridLength([double]1, [System.Windows.GridUnitType]::Star)
-        $targetGrid.ColumnDefinitions.Add($colDef) | Out-Null
-    }
-
-    # Convert PSCustomObject to Hashtable
-    $configHashtable = @{}
-    $configVariable.PSObject.Properties.Name | ForEach-Object {
-        $configHashtable[$_] = $configVariable.$_
-    }
-
-    $radioButtonGroups = @{}
-
-    $organizedData = @{}
-    # Iterate through JSON data and organize by panel and category
-    foreach ($entry in $configHashtable.Keys) {
-        $entryInfo = $configHashtable[$entry]
-
-        # Create an object for the application
-        $entryObject = [PSCustomObject]@{
-            Name        = $entry
-            Category    = $entryInfo.Category
-            Content     = $entryInfo.Content
-            Panel       = if ($entryInfo.Panel) { $entryInfo.Panel } else { "0" }
-            Link        = $entryInfo.link
-            Description = $entryInfo.description
-            Type        = $entryInfo.type
-            ComboItems  = $entryInfo.ComboItems
-            ComboDescriptions = $entryInfo.ComboDescriptions
-            Registry    = $entryInfo.registry
-            Checked     = $entryInfo.Checked
-            ButtonWidth = $entryInfo.ButtonWidth
-            GroupName   = $entryInfo.GroupName  # Added for RadioButton groupings
-        }
-
-        if (-not $organizedData.ContainsKey($entryObject.Panel)) {
-            $organizedData[$entryObject.Panel] = @{}
-        }
-
-        if (-not $organizedData[$entryObject.Panel].ContainsKey($entryObject.Category)) {
-            $organizedData[$entryObject.Panel][$entryObject.Category] = @()
-        }
-
-        # Store application data in an array under the category
-        $organizedData[$entryObject.Panel][$entryObject.Category] += $entryObject
-
-    }
-
-    # Initialize panel count
-    $panelcount = 0
-
-    # Category headers that start collapsed (the advanced tweaks); folded once the panel is built
-    $collapsibleHeaders = [System.Collections.Generic.List[object]]::new()
-
-    # Iterate through 'organizedData' by panel, category, and application
-    $yieldClock = [System.Diagnostics.Stopwatch]::StartNew()
-    foreach ($panelKey in ($organizedData.Keys | Sort-Object)) {
-        # Create a Border for each column
-        $border = New-Object Windows.Controls.Border
-        $border.VerticalAlignment = "Stretch"
-        [System.Windows.Controls.Grid]::SetColumn($border, $panelcount)
-        $border.style = $borderstyle
-        $targetGrid.Children.Add($border) | Out-Null
-
-        # Use a DockPanel to contain the content
-        $dockPanelContainer = New-Object Windows.Controls.DockPanel
-        $border.Child = $dockPanelContainer
-
-        # Create a StackPanel for application content controls
-        $stackPanelContainer = New-Object Windows.Controls.StackPanel
-        $stackPanelContainer.HorizontalAlignment = 'Stretch'
-        $stackPanelContainer.VerticalAlignment = 'Stretch'
-
-        # Check if the target grid (or any ancestor) is already inside a ScrollViewer
-        $hasOuterScrollViewer = $false
-        $currentElement = $targetGrid
-        while ($null -ne $currentElement) {
-            if ($currentElement -is [System.Windows.Controls.ScrollViewer] -or $currentElement.GetType().Name -eq "ScrollViewer") {
-                $hasOuterScrollViewer = $true
-                break
-            }
-            $currentElement = $currentElement.Parent
-        }
-
-        if ($hasOuterScrollViewer) {
-            # Add StackPanel directly to DockPanel without nesting a ScrollViewer
-            [Windows.Controls.DockPanel]::SetDock($stackPanelContainer, [Windows.Controls.Dock]::Bottom)
-            $dockPanelContainer.Children.Add($stackPanelContainer) | Out-Null
-        }
-        else {
-            # Create a ScrollViewer for targets that do not already have an outer ScrollViewer
-            $scrollViewer = New-Object Windows.Controls.ScrollViewer
-            $scrollViewer.VerticalScrollBarVisibility = "Auto"
-            $scrollViewer.HorizontalScrollBarVisibility = "Disabled"
-            $scrollViewer.HorizontalAlignment = 'Stretch'
-            $scrollViewer.VerticalAlignment = 'Stretch'
-            $scrollViewer.Content = $stackPanelContainer
-
-            [Windows.Controls.DockPanel]::SetDock($scrollViewer, [Windows.Controls.Dock]::Bottom)
-            $dockPanelContainer.Children.Add($scrollViewer) | Out-Null
-        }
-        $panelcount++
-
-        # Now proceed with adding category labels and entries to $stackPanelContainer
-        foreach ($category in ($organizedData[$panelKey].Keys | Sort-Object)) {
-
-            $label = New-Object Windows.Controls.Label
-            $categoryCleanName = Get-WinUtilCategoryDisplayName -Category $category
-            $label.Content = $categoryCleanName
-
-            # Tweaks categories get a risk badge beside the header (آمن، متقدم — انتبه…)
-            $categoryRisk = Get-WinUtilCategoryRisk -Category $category
-            if ($null -ne $categoryRisk) {
-                $riskColor = [Windows.Media.ColorConverter]::ConvertFromString($categoryRisk.Color)
-
-                $riskText = New-Object Windows.Controls.TextBlock
-                $riskText.Text = $categoryRisk.Text
-                $riskText.FontSize = 11
-                $riskText.FontWeight = [Windows.FontWeights]::SemiBold
-                $riskText.Foreground = New-Object Windows.Media.SolidColorBrush($riskColor)
-
-                $riskBadge = New-Object Windows.Controls.Border
-                $riskBadge.CornerRadius = New-Object Windows.CornerRadius(8)
-                $riskBadge.Padding = New-Object Windows.Thickness(8, 1, 8, 2)
-                $riskBadge.Margin = New-Object Windows.Thickness(10, 0, 0, 0)
-                $riskBadge.VerticalAlignment = "Center"
-                $riskBadge.Background = New-Object Windows.Media.SolidColorBrush(
-                    [Windows.Media.Color]::FromArgb(38, $riskColor.R, $riskColor.G, $riskColor.B))
-                $riskBadge.Child = $riskText
-
-                $headerName = New-Object Windows.Controls.TextBlock
-                $headerName.Text = $categoryCleanName
-                $headerName.VerticalAlignment = "Center"
-
-                $headerPanel = New-Object Windows.Controls.StackPanel
-                $headerPanel.Orientation = "Horizontal"
-                $headerPanel.Children.Add($headerName) | Out-Null
-                $headerPanel.Children.Add($riskBadge) | Out-Null
-                $label.Content = $headerPanel
-                $label.ToolTip = $categoryRisk.Text
-
-                # The advanced tweaks start folded so a beginner does not tick them by accident
-                if ($category -eq "z__Advanced Tweaks - CAUTION") {
-                    $foldArrow = New-Object Windows.Controls.TextBlock
-                    $foldArrow.FontSize = 11
-                    $foldArrow.Margin = New-Object Windows.Thickness(10, 0, 0, 0)
-                    $foldArrow.VerticalAlignment = "Center"
-                    $foldArrow.Opacity = 0.75
-                    $headerPanel.Children.Add($foldArrow) | Out-Null
-
-                    $label.Tag = @{ Collapsed = $true; Arrow = $foldArrow }
-                    $label.Cursor = [Windows.Input.Cursors]::Hand
-                    $label.ToolTip = "$($categoryRisk.Text) — اضغط للعرض أو الإخفاء"
-                    $label.Add_MouseLeftButtonUp({
-                        param($header)
-                        Set-WinUtilCategoryCollapsed -Label $header -Collapsed (-not $header.Tag.Collapsed)
-                    })
-                    $label.Add_KeyUp({
-                        param($header, $keyArgs)
-                        if ($keyArgs.Key -eq [Windows.Input.Key]::Enter -or $keyArgs.Key -eq [Windows.Input.Key]::Space) {
-                            Set-WinUtilCategoryCollapsed -Label $header -Collapsed (-not $header.Tag.Collapsed)
-                        }
-                    })
-                    $collapsibleHeaders.Add($label)
-                }
-            }
-            $label.Focusable = $true
-            $label.IsTabStop = $true
-            [System.Windows.Automation.AutomationProperties]::SetName($label, $categoryCleanName)
-            $label.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "HeaderFontSize")
-            $label.SetResourceReference([Windows.Controls.Control]::FontFamilyProperty, "HeaderFontFamily")
-            $label.UseLayoutRounding = $true
-            $stackPanelContainer.Children.Add($label) | Out-Null
-            $sync[$category] = $label
-
-            # Sort entries by type (checkboxes first, then buttons, then comboboxes, notes last) and then alphabetically by Content
-            $entries = $organizedData[$panelKey][$category] | Sort-Object @{Expression = {
-                switch ($_.Type) {
-                    'Button' { 1 }
-                    'Combobox' { 2 }
-                    'Note' { 3 }
-                    default { 0 }
-                }
-            }}, Content
-            foreach ($entryInfo in $entries) {
-
-                # Constructing a panel's worth of controls in one go holds the interface for
-                # hundreds of milliseconds. Draining the queue on a deadline rather than every
-                # nth entry keeps the wait bounded whatever the entries cost to build.
-                if ($Yield -and $yieldClock.ElapsedMilliseconds -ge 25 -and (Test-WinUtilUIAlive)) {
-                    $yieldClock.Restart()
-                    $frame = New-Object Windows.Threading.DispatcherFrame
-                    $null = $sync.Form.Dispatcher.BeginInvoke(
-                        [Windows.Threading.DispatcherPriority]::Background,
-                        [Windows.Threading.DispatcherOperationCallback]{
-                            param($dispatcherFrame)
-                            $dispatcherFrame.Continue = $false
-                            return $null
-                        },
-                        $frame)
-                    [Windows.Threading.Dispatcher]::PushFrame($frame)
-                }
-
-                # Create the UI elements based on the entry type
-                switch ($entryInfo.Type) {
-                    "Toggle" {
-                        $dockPanel = New-Object Windows.Controls.DockPanel
-                        [System.Windows.Automation.AutomationProperties]::SetName($dockPanel, $entryInfo.Content)
-                        $checkBox = New-Object Windows.Controls.CheckBox
-                        $checkBox.Name = $entryInfo.Name
-                        $checkBox.HorizontalAlignment = "Right"
-                        $checkBox.UseLayoutRounding = $true
-                        [System.Windows.Automation.AutomationProperties]::SetName($checkBox, $entryInfo.Content)
-                        $dockPanel.Children.Add($checkBox) | Out-Null
-                        $checkBox.Style = $ColorfulToggleSwitchStyle
-
-                        $label = New-Object Windows.Controls.Label
-                        $label.Content = $entryInfo.Content
-                        $label.ToolTip = $entryInfo.Description
-                        $label.HorizontalAlignment = "Left"
-                        $label.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "FontSize")
-                        $label.SetResourceReference([Windows.Controls.Control]::ForegroundProperty, "MainForegroundColor")
-                        $label.UseLayoutRounding = $true
-                        $dockPanel.Children.Add($label) | Out-Null
-                        $stackPanelContainer.Children.Add($dockPanel) | Out-Null
-
-                        $sync[$entryInfo.Name] = $checkBox
-                        $sync[$entryInfo.Name].IsChecked = (Get-WinUtilToggleStatus $entryInfo.Name)
-
-                        $sync[$entryInfo.Name].Add_Checked({
-                            [System.Object]$Sender = $args[0]
-                            Invoke-WPFSelectedCheckboxesUpdate -type "Add" -checkboxName $Sender.name
-                            # Skip applying tweaks while an import is restoring toggle states
-                            if (-not $sync.ImportInProgress) {
-                                Invoke-WinUtilTweaks $Sender.name
-                            }
-                        })
-
-                        $sync[$entryInfo.Name].Add_Unchecked({
-                            [System.Object]$Sender = $args[0]
-                            Invoke-WPFSelectedCheckboxesUpdate -type "Remove" -checkboxName $Sender.name
-                            # Skip undoing tweaks while an import is restoring toggle states
-                            if (-not $sync.ImportInProgress) {
-                                Invoke-WinUtiltweaks $Sender.name -undo $true
-                            }
-                        })
-                    }
-
-                    "ToggleButton" {
-                        $toggleButton = New-Object Windows.Controls.Primitives.ToggleButton
-                        $toggleButton.Name = $entryInfo.Name
-                        $toggleButton.Content = $entryInfo.Content[1]
-                        $toggleButton.ToolTip = Get-WinUtilEntryToolTip -Description $entryInfo.Description -Key $entryInfo.Name
-                        $toggleButton.HorizontalAlignment = "Left"
-                        $toggleButton.Style = $ToggleButtonStyle
-                        [System.Windows.Automation.AutomationProperties]::SetName($toggleButton, $entryInfo.Content[0])
-
-                        $toggleButton.Tag = @{
-                            contentOn = if ($entryInfo.Content.Count -ge 1) { $entryInfo.Content[0] } else { "" }
-                            contentOff = if ($entryInfo.Content.Count -ge 2) { $entryInfo.Content[1] } else { $contentOn }
-                        }
-
-                        $stackPanelContainer.Children.Add($toggleButton) | Out-Null
-
-                        $sync[$entryInfo.Name] = $toggleButton
-
-                        $sync[$entryInfo.Name].Add_Checked({
-                            $this.Content = $this.Tag.contentOn
-                        })
-
-                        $sync[$entryInfo.Name].Add_Unchecked({
-                            $this.Content = $this.Tag.contentOff
-                        })
-
-                        if ($null -eq $sync.Buttons) {
-                            $sync.Buttons = [System.Collections.Generic.List[PSObject]]::new()
-                        }
-
-                        if ($sync.Buttons -notcontains $toggleButton.Name) {
-                            $toggleButton.Add_Click({
-                                [System.Object]$Sender = $args[0]
-                                Invoke-WPFButton $Sender.name
-                            })
-                            $sync.Buttons.Add($toggleButton.Name) | Out-Null
-                        }
-                    }
-
-                    "Combobox" {
-                        $horizontalStackPanel = New-Object Windows.Controls.StackPanel
-                        $horizontalStackPanel.Orientation = "Horizontal"
-                        $horizontalStackPanel.Margin = "0,5,0,0"
-                        [System.Windows.Automation.AutomationProperties]::SetName($horizontalStackPanel, $entryInfo.Content)
-
-                        $label = New-Object Windows.Controls.Label
-                        $label.Content = $entryInfo.Content
-                        $label.HorizontalAlignment = "Left"
-                        $label.ToolTip = $entryInfo.Description
-                        $label.VerticalAlignment = "Center"
-                        $label.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "ButtonFontSize")
-                        $label.UseLayoutRounding = $true
-                        $horizontalStackPanel.Children.Add($label) | Out-Null
-
-                        $comboBox = New-Object Windows.Controls.ComboBox
-                        $comboBox.Name = $entryInfo.Name
-                        $comboBox.SetResourceReference([Windows.Controls.Control]::HeightProperty, "ButtonHeight")
-                        $comboBox.SetResourceReference([Windows.Controls.Control]::WidthProperty, "ButtonWidth")
-                        $comboBox.HorizontalAlignment = "Left"
-                        $comboBox.VerticalAlignment = "Center"
-                        $comboBox.SetResourceReference([Windows.Controls.Control]::MarginProperty, "ButtonMargin")
-                        $comboBox.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "ButtonFontSize")
-                        $comboBox.UseLayoutRounding = $true
-                        $comboBox.Tag = [pscustomobject]@{
-                            Registry = $entryInfo.Registry
-                            State = $null
-                        }
-                        [System.Windows.Automation.AutomationProperties]::SetName($comboBox, $entryInfo.Content)
-
-                        $comboItems = if ($entryInfo.ComboItems -is [string]) {
-                            if ($entryInfo.ComboItems.Contains("|")) {
-                                $entryInfo.ComboItems -split "\|"
-                            } else {
-                                $entryInfo.ComboItems -split " "
-                            }
-                        } else {
-                            @($entryInfo.ComboItems)
-                        }
-
-                        foreach ($comboitem in $comboItems) {
-                            $comboBoxItem = New-Object Windows.Controls.ComboBoxItem
-                            $comboBoxItem.Content = $comboitem
-                            if ($entryInfo.ComboDescriptions) {
-                                $comboDescription = $entryInfo.ComboDescriptions.PSObject.Properties[$comboitem].Value
-                                if ($comboDescription) {
-                                    $comboBoxItem.ToolTip = $comboDescription
-                                }
-                            }
-                            $comboBoxItem.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "ButtonFontSize")
-                            $comboBoxItem.UseLayoutRounding = $true
-                            $comboBox.Items.Add($comboBoxItem) | Out-Null
-                        }
-
-                        $horizontalStackPanel.Children.Add($comboBox) | Out-Null
-                        $stackPanelContainer.Children.Add($horizontalStackPanel) | Out-Null
-
-                        if ($entryInfo.Registry -and @($entryInfo.Registry)[0].Values) {
-                            try {
-                                $comboBox.Tag.State = Get-WinUtilRegistryComboState -Registry $entryInfo.Registry
-                                $comboBox.SelectedIndex = @($comboBox.Items.Content).IndexOf([string]$comboBox.Tag.State)
-                            } catch {
-                                $unknownStateItem = New-Object Windows.Controls.ComboBoxItem
-                                $unknownStateItem.Content = "مخصص / غير معروف - اختر حالة"
-                                $unknownStateItem.IsEnabled = $false
-                                $unknownStateItem.ToolTip = "$($_.Exception.Message) اختر إحدى الحالات المدعومة لاستبدال هذه القيم."
-                                $comboBox.Items.Add($unknownStateItem) | Out-Null
-                                $comboBox.SelectedItem = $unknownStateItem
-                                $comboBox.ToolTip = $unknownStateItem.ToolTip
-                            }
-                        } else {
-                            $comboBox.SelectedIndex = 0
-                        }
-
-                        # Set initial text
-                        if ($comboBox.Items.Count -gt 0) {
-                            $comboBox.Text = $comboBox.SelectedItem.Content
-                        }
-
-                        $sync[$entryInfo.Name] = $comboBox
-
-                        # Add SelectionChanged event handler to update the text property
-                        $comboBox.Add_SelectionChanged({
-                            $selectedItem = $this.SelectedItem
-                            if ($selectedItem) {
-                                $this.Text = $selectedItem.Content
-                                $registry = $this.Tag.Registry
-                                if ($registry -and $selectedItem.IsEnabled -and $selectedItem.Content -ne $this.Tag.State) {
-                                    try {
-                                        Set-WinUtilRegistryComboState -Registry $registry -State $selectedItem.Content
-                                        $this.Tag.State = $selectedItem.Content
-                                        $this.ToolTip = $null
-                                        $unknownStateItem = @($this.Items) | Where-Object Content -EQ "مخصص / غير معروف - اختر حالة" | Select-Object -First 1
-                                        if ($unknownStateItem) {
-                                            $this.Items.Remove($unknownStateItem)
-                                        }
-                                    } catch {
-                                        $applyError = $_.Exception.Message
-                                        if ([string]::IsNullOrWhiteSpace($applyError)) {
-                                            $applyError = "تعذّر تطبيق حالة السجل '$($selectedItem.Content)'."
-                                        }
-                                        $previousState = if ($this.Tag.State) { $this.Tag.State } else { "مخصص / غير معروف - اختر حالة" }
-                                        $this.SelectedItem = @($this.Items) | Where-Object Content -EQ $previousState | Select-Object -First 1
-                                        [System.Windows.MessageBox]::Show(
-                                            $applyError,
-                                            "WinUtil",
-                                            [System.Windows.MessageBoxButton]::OK,
-                                            [System.Windows.MessageBoxImage]::Warning
-                                        ) | Out-Null
-                                    }
-                                }
-                            }
-                        })
-
-                        if ($entryInfo.Registry -and @($entryInfo.Registry)[0].Values -and $entryInfo.Link) {
-                            $textBlock = New-Object Windows.Controls.TextBlock
-                            $textBlock.Name = $comboBox.Name + "Link"
-                            $textBlock.Text = "(?)"
-                            $textBlock.ToolTip = $entryInfo.Link
-                            $textBlock.Style = $HoverTextBlockStyle
-                            $textBlock.UseLayoutRounding = $true
-                            $textBlock.VerticalAlignment = "Center"
-                            $textBlock.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "FontSize")
-                            $textBlock.Tag = $comboBox
-
-                            $textBlock.Add_MouseUp({
-                                [System.Object]$Sender = $args[0]
-                                Start-Process $Sender.ToolTip -ErrorAction Stop
-                            })
-
-                            $horizontalStackPanel.Children.Add($textBlock) | Out-Null
-                            $sync[$textBlock.Name] = $textBlock
-                        }
-                    }
-
-                    "Button" {
-                        $button = New-Object Windows.Controls.Button
-                        $button.Name = $entryInfo.Name
-                        $button.Content = $entryInfo.Content
-                        $button.HorizontalAlignment = "Left"
-                        $button.SetResourceReference([Windows.Controls.Control]::MarginProperty, "ButtonMargin")
-                        $button.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "ButtonFontSize")
-                        if ($entryInfo.ButtonWidth) {
-                            $baseWidth = [int]$entryInfo.ButtonWidth
-                            $button.Width = [math]::Max($baseWidth, 350)
-                        }
-                        [System.Windows.Automation.AutomationProperties]::SetName($button, $entryInfo.Content)
-                        $stackPanelContainer.Children.Add($button) | Out-Null
-
-                        $sync[$entryInfo.Name] = $button
-
-                        if ($null -eq $sync.Buttons) {
-                            $sync.Buttons = [System.Collections.Generic.List[PSObject]]::new()
-                        }
-
-                        if ($sync.Buttons -notcontains $button.Name) {
-                            $button.Add_Click({
-                                [System.Object]$Sender = $args[0]
-                                Invoke-WPFButton $Sender.name
-                            })
-                            $sync.Buttons.Add($button.Name) | Out-Null
-                        }
-                    }
-
-                    "RadioButton" {
-                        # Check if a container for this GroupName already exists
-                        if (-not $radioButtonGroups.ContainsKey($entryInfo.GroupName)) {
-                            # Create a StackPanel for this group
-                            $groupStackPanel = New-Object Windows.Controls.StackPanel
-                            $groupStackPanel.Orientation = "Vertical"
-                            [System.Windows.Automation.AutomationProperties]::SetName($groupStackPanel, $entryInfo.GroupName)
-                            $radioButtonGroups[$entryInfo.GroupName] = $groupStackPanel
-
-                            # Add the group container to the ItemsControl
-                            $stackPanelContainer.Children.Add($groupStackPanel) | Out-Null
-                        }
-                        else {
-                            # Retrieve the existing group container
-                            $groupStackPanel = $radioButtonGroups[$entryInfo.GroupName]
-                        }
-
-                        # Create the RadioButton
-                        $radioButton = New-Object Windows.Controls.RadioButton
-                        $radioButton.Name = $entryInfo.Name
-                        $radioButton.GroupName = $entryInfo.GroupName
-                        $radioButton.Content = $entryInfo.Content
-                        $radioButton.HorizontalAlignment = "Left"
-                        $radioButton.SetResourceReference([Windows.Controls.Control]::MarginProperty, "CheckBoxMargin")
-                        $radioButton.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "ButtonFontSize")
-                        $radioButton.ToolTip = $entryInfo.Description
-                        $radioButton.UseLayoutRounding = $true
-                        [System.Windows.Automation.AutomationProperties]::SetName($radioButton, $entryInfo.Content)
-
-                        if ($entryInfo.Checked -eq $true) {
-                            $radioButton.IsChecked = $true
-                        }
-
-                        # Add the RadioButton to the group container
-                        $groupStackPanel.Children.Add($radioButton) | Out-Null
-                        $sync[$entryInfo.Name] = $radioButton
-                    }
-
-                    "Note" {
-                        $textBlock = New-Object Windows.Controls.TextBlock
-                        $textBlock.TextWrapping = "Wrap"
-                        $textBlock.Margin = "5,5,5,5"
-                        $textBlock.UseLayoutRounding = $true
-
-                        $bulletBadge = [Windows.Documents.InlineUIContainer]::new((New-WinUtilFossBadge -Size 18 -Round))
-                        $bulletBadge.BaselineAlignment = [Windows.BaselineAlignment]::Center
-
-                        $textRun = New-Object Windows.Documents.Run
-                        $textRun.Text = " $($entryInfo.Content)"
-                        $textRun.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "FontSize")
-                        $textRun.Foreground = [Windows.Media.SolidColorBrush]::new([Windows.Media.Color]::FromRgb(19, 143, 83))
-
-                        $textBlock.Inlines.Add($bulletBadge)
-                        $textBlock.Inlines.Add($textRun)
-
-                        $stackPanelContainer.Children.Add($textBlock) | Out-Null
-                    }
-
-                    default {
-                        $horizontalStackPanel = New-Object Windows.Controls.StackPanel
-                        $horizontalStackPanel.Orientation = "Horizontal"
-                        [System.Windows.Automation.AutomationProperties]::SetName($horizontalStackPanel, $entryInfo.Content)
-
-                        $checkBox = New-Object Windows.Controls.CheckBox
-                        $checkBox.Name = $entryInfo.Name
-                        $checkBox.Content = $entryInfo.Content
-                        $checkBox.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "FontSize")
-                        $checkBox.ToolTip = Get-WinUtilEntryToolTip -Description $entryInfo.Description -Key $entryInfo.Name
-                        $checkBox.SetResourceReference([Windows.Controls.Control]::MarginProperty, "CheckBoxMargin")
-                        $checkBox.UseLayoutRounding = $true
-                        [System.Windows.Automation.AutomationProperties]::SetName($checkBox, $entryInfo.Content)
-                        if ($entryInfo.Checked -eq $true) {
-                            $checkBox.IsChecked = $entryInfo.Checked
-                        }
-                        $horizontalStackPanel.Children.Add($checkBox) | Out-Null
-
-                        if ($entryInfo.Link) {
-                            $textBlock = New-Object Windows.Controls.TextBlock
-                            $textBlock.Name = $checkBox.Name + "Link"
-                            $textBlock.Text = "(?)"
-                            $textBlock.ToolTip = $entryInfo.Link
-                            $textBlock.Style = $HoverTextBlockStyle
-                            $textBlock.UseLayoutRounding = $true
-
-                            $textBlock.VerticalAlignment = "Center"
-                            $textBlock.SetResourceReference([Windows.Controls.Control]::FontSizeProperty, "FontSize")
-                            $textBlock.Tag = $checkBox
-
-                            $textBlock.Add_MouseUp({
-                                [System.Object]$Sender = $args[0]
-                                Start-Process $Sender.ToolTip -ErrorAction Stop
-                            })
-
-                            $updateLinkMargin = {
-                                [System.Object]$Sender = $args[0]
-                                $linkedCheckBox = $Sender.Tag
-                                $MarginTopBase = if ($linkedCheckBox) { $linkedCheckBox.Margin.Top } else { 0 }
-                                $Sender.Margin = New-Object Windows.Thickness(
-                                    [math]::Round($Sender.FontSize * 0.5),
-                                    ($MarginTopBase - [math]::Round($Sender.FontSize / 2)),
-                                    0, 0
-                                )
-                            }
-                            $textBlock.Add_Loaded($updateLinkMargin)
-                            $fontSizeDescriptor = [System.ComponentModel.DependencyPropertyDescriptor]::FromProperty(
-                                [Windows.Controls.Control]::FontSizeProperty,
-                                [Windows.Controls.TextBlock]
-                            )
-                            $fontSizeDescriptor.AddValueChanged($textBlock, $updateLinkMargin)
-
-                            $horizontalStackPanel.Children.Add($textBlock) | Out-Null
-
-                            $sync[$textBlock.Name] = $textBlock
-                        }
-
-                        $stackPanelContainer.Children.Add($horizontalStackPanel) | Out-Null
-                        $sync[$entryInfo.Name] = $checkBox
-
-                        $sync[$entryInfo.Name].Add_Checked({
-                            [System.Object]$Sender = $args[0]
-                            Invoke-WPFSelectedCheckboxesUpdate -type "Add" -checkboxName $Sender.name
-                        })
-
-                        $sync[$entryInfo.Name].Add_Unchecked({
-                            [System.Object]$Sender = $args[0]
-                            Invoke-WPFSelectedCheckboxesUpdate -type "Remove" -checkboxName $Sender.name
-                        })
-                    }
-                }
-            }
-        }
-    }
-
-    foreach ($header in $collapsibleHeaders) {
-        Set-WinUtilCategoryCollapsed -Label $header -Collapsed $header.Tag.Collapsed -ExpandIfSelected
-        # Presets look these up to open a folded category they select into
-        $sync.CollapsibleTweakHeaders = @(@($sync.CollapsibleTweakHeaders) + $header | Where-Object { $null -ne $_ })
-    }
-
-    # A search event can run inside one of the yielded dispatcher frames above. Controls added
-    # after that event start visible, so reapply the live filter once this tab is complete.
-    $filterPanel = switch ($sync.currentTab) {
-        "Tweaks" { "tweakspanel" }
-        "AppX" { "appxpanel" }
-    }
-    if ($filterPanel -eq $targetGridName -and $null -ne $sync.SearchBar) {
-        Find-TweaksByNameOrDescription -SearchString $sync.SearchBar.Text
-    }
-}
-
-function Test-WinUtilUIAlive {
-    <#
-        .SYNOPSIS
-            Whether there is a window that can still be posted to
-
-        .DESCRIPTION
-            False for a headless run, and for a window closed over running work: a shut down
-            dispatcher accepts posts and discards them.
-    #>
-
-    return $null -ne $sync.Form -and $null -ne $sync.Form.Dispatcher -and -not $sync.Form.Dispatcher.HasShutdownStarted
-}
-
-function Test-WinUtilDispatcherShutdownException {
-    param([System.Exception]$Exception)
-
-    while ($null -ne $Exception) {
-        if ($Exception -is [System.OperationCanceledException] -or
-            $Exception -is [System.InvalidOperationException]) {
-            return $true
-        }
-        $Exception = $Exception.InnerException
-    }
-
-    return $false
-}
-
-function Invoke-WPFUIThread {
-    <#
-        .SYNOPSIS
-            Runs a scriptblock on the interface thread
-
-        .DESCRIPTION
-            Controls may only be touched from the thread that owns the window.
-
-            The body is handed over as text and rebuilt in the interface runspace rather than
-            marshalled as a scriptblock: a scriptblock keeps the session state it was written in,
-            and running one across runspaces costs roughly twenty times as much per command. So
-            values come in through Parameters rather than captured from the caller's scope.
-
-            A no-op once the window is gone, so a job outliving the interface finishes quietly.
-
-        .PARAMETER ScriptBlock
-            The work to run on the interface thread. Declare a param block for anything it needs.
-
-        .PARAMETER Parameters
-            Values passed to the body by name.
-
-        .PARAMETER Async
-            Post and return instead of waiting. For progress and log updates, which must never
-            stall the caller.
-
-        .PARAMETER PassThru
-            Return what the body produced. Off by default so a caller that only wanted a control
-            updated gets no stray output.
-    #>
-    param(
-        [Parameter(Mandatory, Position = 0)]
-        [scriptblock]$ScriptBlock,
-
-        [hashtable]$Parameters = @{},
-
-        [switch]$Async,
-
-        [switch]$PassThru
-    )
-
-    if (-not (Test-WinUtilUIAlive)) {
-        return
-    }
-    $dispatcher = $sync.Form.Dispatcher
-
-    if (-not $Async -and $dispatcher.CheckAccess()) {
-        $inlineResult = & $ScriptBlock @Parameters
-        if ($PassThru) { return $inlineResult }
-        return
-    }
-
-    $executor = $sync.UIDispatchDelegate
-    if ($null -eq $executor) {
-        # No interface runspace to hand the work to, so the block itself is marshalled. It has to
-        # receive its parameters and return what it produced, and [action] carries neither.
-        if ($Async) {
-            # The values travel as the dispatcher's argument, since this call returns before the
-            # block runs and anything captured from here would be gone by then
-            try {
-                $null = $dispatcher.BeginInvoke(
-                    [Windows.Threading.DispatcherPriority]::Background,
-                    [System.Windows.Threading.DispatcherOperationCallback]{
-                        param($Work)
-                        $body = $Work.Body
-                        $arguments = $Work.Parameters
-                        if ($arguments -and $arguments.Count -gt 0) {
-                            $null = & $body @arguments
-                        } else {
-                            $null = & $body
-                        }
-                        return $null
-                    },
-                    @{ Body = $ScriptBlock; Parameters = $Parameters })
-            } catch {
-                $shutdownFailure = Test-WinUtilDispatcherShutdownException -Exception $_.Exception
-                if ($shutdownFailure -and -not (Test-WinUtilUIAlive)) { return }
-                throw
-            }
-            return
-        }
-
-        # Synchronous, so this frame is still alive while the block runs and can be captured from
-        try {
-            $fallbackResult = $dispatcher.Invoke([System.Func[object]]{ & $ScriptBlock @Parameters })
-        } catch {
-            $shutdownFailure = Test-WinUtilDispatcherShutdownException -Exception $_.Exception
-            if ($shutdownFailure -and -not (Test-WinUtilUIAlive)) { return }
-            throw
-        }
-        if ($PassThru) { return $fallbackResult }
-        return
-    }
-
-    $work = @{
-        Body = $ScriptBlock.ToString()
-        Parameters = $Parameters
-        # A synchronous caller is waiting for a required UI handoff and must see its failure.
-        # Fire-and-forget posts have nobody to receive an exception, so the delegate only logs it.
-        PropagateErrors = -not $Async
-    }
-
-    if ($Async) {
-        try {
-            $null = $dispatcher.BeginInvoke([Windows.Threading.DispatcherPriority]::Background, $executor, $work)
-        } catch {
-            $shutdownFailure = Test-WinUtilDispatcherShutdownException -Exception $_.Exception
-            if ($shutdownFailure -and -not (Test-WinUtilUIAlive)) { return }
-            throw
-        }
-        return
-    }
-
-    try {
-        $result = $dispatcher.Invoke($executor, @($work))
-    } catch {
-        $shutdownFailure = Test-WinUtilDispatcherShutdownException -Exception $_.Exception
-        if ($shutdownFailure -and -not (Test-WinUtilUIAlive)) { return }
-        throw
-    }
-    if ($PassThru) { return $result }
-}
-
-function Invoke-WPFUltimatePerformance ([switch]$Enable) {
-    <#
-
-    .SYNOPSIS
-        Adds or removes the Ultimate Performance power plan
-
-    #>
-
-    if ($Enable) {
-        Step-WinUtilJob -Status "جارٍ إضافة خطة الطاقة للأداء الفائق" -State "Indeterminate"
-        Write-WinUtilLog -Component "Power" -Message "Duplicating and activating the Ultimate Performance power plan."
-
-        $duplicated = powercfg /duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61
-        if ($LASTEXITCODE -ne 0) {
-            throw "powercfg could not duplicate the Ultimate Performance scheme (exit code $LASTEXITCODE)."
-        }
-
-        $guid = ($duplicated | Select-String -Pattern '[A-Fa-f0-9-]{36}').Matches.Value
-        if (-not $guid) {
-            throw "powercfg did not report a scheme GUID to activate."
-        }
-
-        powercfg /setactive $guid
-        if ($LASTEXITCODE -ne 0) {
-            throw "powercfg could not activate the Ultimate Performance scheme (exit code $LASTEXITCODE)."
-        }
-
-        Write-WinUtilLog -Component "Power" -Message "Ultimate Performance power plan installed and activated."
-    } else {
-        Step-WinUtilJob -Status "جارٍ استعادة خطط الطاقة الافتراضية" -State "Indeterminate"
-        Write-WinUtilLog -Component "Power" -Message "Restoring the default power schemes."
-
-        powercfg /restoredefaultschemes
-        if ($LASTEXITCODE -ne 0) {
-            throw "powercfg could not restore the default power schemes (exit code $LASTEXITCODE)."
-        }
-
-        Write-WinUtilLog -Component "Power" -Message "Power plans were reset to defaults."
-    }
-}
-
-function Invoke-WPFundoall {
-    <#
-
-    .SYNOPSIS
-        Undoes every selected tweak
-
-    #>
-
-    $tweaks = $sync.selectedTweaks
-
-    if ($tweaks.count -eq 0) {
-        Show-WinUtilMessage -Message "يرجى تحديد التحسينات التي تريد التراجع عنها." -Title "WinUtil" -Button "OK" -Icon "Warning"
-        return
-    }
-
-    Start-WinUtilJob -Name "Undo tweaks" -Description "التراجع عن التحسينات" -Parameters @{
-        Tweaks = @($tweaks)
-    } -ScriptBlock {
-        param($Tweaks)
-
-        $total = @($Tweaks).Count
-        Write-WinUtilLog -Component "Tweaks" -Message "Undo tweaks requested: $total selected tweak(s)."
-
-        for ($i = 0; $i -lt $total; $i++) {
-            Step-WinUtilJob -Status "جارٍ التراجع عن $($Tweaks[$i]) ($($i + 1)/$total)" -Percent ([int](($i / $total) * 100))
-            Measure-WinUtilStep -Scope "Undo tweaks" -Name $Tweaks[$i] -ScriptBlock {
-                Invoke-WinUtiltweaks $Tweaks[$i] -undo $true
-            }
-            Step-WinUtilJob -Percent ([int]((($i + 1) / $total) * 100))
-        }
-    }
-}
-
-function Invoke-WPFUnInstall {
-    param(
-        [Parameter(Mandatory=$false)]
-        [PSObject[]]$PackagesToUninstall = $($sync.selectedApps | Foreach-Object { $sync.configs.applicationsHashtable.$_ })
-    )
-    <#
-
-    .SYNOPSIS
-        Uninstalls the selected programs
-    #>
-
-    if ($PackagesToUninstall.Count -eq 0) {
-        $WarningMsg = "يرجى تحديد البرامج التي تريد إلغاء تثبيتها"
-        Show-WinUtilMessage -Message $WarningMsg -Title "WinUtil" -Button "OK" -Icon "Warning"
-        return
-    }
-
-    $ButtonType = "YesNo"
-    $MessageboxTitle = "هل أنت متأكد؟"
-    $Messageboxbody = ("سيتم إلغاء تثبيت التطبيقات التالية: `n $($PackagesToUninstall | Select-Object Name, Description| Out-String)")
-    $MessageIcon = "Information"
-
-    $confirm = Show-WinUtilMessage -Message $Messageboxbody -Title $MessageboxTitle -Button $ButtonType -Icon $MessageIcon
-
-    if ($confirm -ne "Yes") { return }
-
-    $ManagerPreference = $sync.preferences.packagemanager
-    Write-WinUtilLog -Component "Uninstall" -Message "Uninstall requested for $(@($PackagesToUninstall).Count) selected package(s) using preference: $ManagerPreference"
-    $packageSummary = Get-WinUtilPackageLogSummary -Packages $PackagesToUninstall -Preference $ManagerPreference
-    Write-WinUtilLog -Component "Uninstall" -Message "Uninstall selected package(s): $($packageSummary -join '; ')"
-
-    Start-WinUtilJob -Name "Uninstall" -Description "إلغاء تثبيت التطبيقات" -DisableAppList -Parameters @{
-        PackagesToUninstall = $PackagesToUninstall
-        ManagerPreference = $ManagerPreference
-    } -ScriptBlock {
-        param($PackagesToUninstall, $ManagerPreference)
-
-        $packagesSorted = Get-WinUtilSelectedPackages -PackageList $PackagesToUninstall -Preference $ManagerPreference
-        $packagesWinget = $packagesSorted['Winget']
-        $packagesChoco = $packagesSorted['Choco']
-        $totalPackages = @($packagesWinget).Count + @($packagesChoco).Count
-        $completedPackages = 0
-        Write-WinUtilLog -Component "Uninstall" -Message "Uninstall package manager split: winget=$(@($packagesWinget).Count), choco=$(@($packagesChoco).Count)"
-
-        if ($packagesWinget -contains "Microsoft.Edge") {
-            New-Item -Path "$Env:SystemRoot\SystemApps\Microsoft.MicrosoftEdge_8wekyb3d8bbwe\MicrosoftEdge.exe" -Force | Out-Null
-        }
-
-        $results = @()
-
-        if ($packagesWinget.Count -gt 0) {
-            foreach ($program in $packagesWinget) {
-                $position = $completedPackages + 1
-                Step-WinUtilJob -Status "جارٍ إلغاء تثبيت $program ($position/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
-
-                $results += Measure-WinUtilStep -Scope "Uninstall" -Name "winget $program" -ScriptBlock {
-                    Install-WinUtilProgramWinget -Action Uninstall -Programs @($program)
-                }
-                $completedPackages++
-                Step-WinUtilJob -Status "تم إلغاء تثبيت $program ($completedPackages/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
-            }
-        }
-
-        if ($packagesChoco.Count -gt 0) {
-            $position = $completedPackages + 1
-            Step-WinUtilJob -Status "جارٍ إلغاء تثبيت حزم Chocolatey ($position/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
-
-            $chocoBase = [int](($completedPackages / $totalPackages) * 100)
-            $chocoSpan = [int]((@($packagesChoco).Count / $totalPackages) * 100)
-            $results += Measure-WinUtilStep -Scope "Uninstall" -Name "choco $($packagesChoco -join ', ')" -ScriptBlock {
-                Install-WinUtilProgramChoco -Action Uninstall -Programs $packagesChoco -ProgressBase $chocoBase -ProgressSpan $chocoSpan
-            }
-            $completedPackages += @($packagesChoco).Count
-            Step-WinUtilJob -Status "تم إلغاء تثبيت حزم Chocolatey ($completedPackages/$totalPackages)" -Percent ([int](($completedPackages / $totalPackages) * 100))
-        }
-
-        Complete-WinUtilPackageRun -Action "Uninstall" -Results $results
-    }
-}
-
-function Invoke-WPFUpdatesdefault {
-    <#
-
-    .SYNOPSIS
-        Resets Windows Update settings to default
-
-    #>
-    Write-WinUtilLog -Component "Updates" -Message "Resetting Windows Update settings to default."
-
-    Write-Host "Removing Windows Update settings managed by WinUtil..." -ForegroundColor Green
-    Write-WinUtilLog -Component "Updates" -Message "Removing Windows Update registry values managed by WinUtil."
-
-    $registryValues = @(
-        @{
-            Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
-            Names = @("NoAutoUpdate", "AUOptions", "NoAutoRebootWithLoggedOnUsers", "AUPowerManagement")
-        },
-        @{
-            Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
-            Names = @("ExcludeWUDriversInQualityUpdate", "DeferFeatureUpdates", "DeferFeatureUpdatesPeriodInDays", "DeferQualityUpdates", "DeferQualityUpdatesPeriodInDays")
-        },
-        @{
-            Path = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
-            Names = @("BranchReadinessLevel", "DeferFeatureUpdatesPeriodInDays", "DeferQualityUpdatesPeriodInDays")
-        },
-        @{
-            Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Device Metadata"
-            Names = @("PreventDeviceMetadataFromNetwork")
-        },
-        @{
-            Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching"
-            Names = @("DontPromptForWindowsUpdate", "DontSearchWindowsUpdate", "DriverUpdateWizardWuSearchEnabled")
-        },
-        @{
-            Path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config"
-            Names = @("DODownloadMode")
-        }
-    )
-
-    foreach ($registryEntry in $registryValues) {
-        foreach ($valueName in $registryEntry.Names) {
-            Remove-ItemProperty -Path $registryEntry.Path -Name $valueName -ErrorAction SilentlyContinue
-        }
-    }
-
-    $explorerPolicyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer"
-    $settingsPageVisibility = (Get-ItemProperty -Path $explorerPolicyPath -Name "SettingsPageVisibility" -ErrorAction SilentlyContinue).SettingsPageVisibility
-    if ($settingsPageVisibility -eq "hide:windowsupdate") {
-        Write-Host "Removing WinUtil's legacy Windows Update page restriction..."
-        Write-WinUtilLog -Component "Updates" -Message "Removing the legacy Windows Update settings page restriction."
-        Remove-ItemProperty -Path $explorerPolicyPath -Name "SettingsPageVisibility" -ErrorAction SilentlyContinue
-    }
-
-    Write-Host "Reenabling Windows Update Services..." -ForegroundColor Green
-    Write-WinUtilLog -Component "Updates" -Message "Restoring Windows Update service startup types."
-
-    Write-Host "Restored BITS to Manual."
-    Write-WinUtilLog -Component "Updates" -Message "Restoring BITS service to Manual."
-    Set-Service -Name BITS -StartupType Manual
-
-    Write-Host "Restored wuauserv to Manual."
-    Write-WinUtilLog -Component "Updates" -Message "Restoring wuauserv service to Manual."
-    Set-Service -Name wuauserv -StartupType Manual
-
-    Write-Host "Restored UsoSvc to Automatic."
-    Write-WinUtilLog -Component "Updates" -Message "Starting UsoSvc service and restoring startup type to Automatic."
-    Set-Service -Name UsoSvc -StartupType Automatic
-    Start-Service -Name UsoSvc
-
-    Write-Host "Enabling update related scheduled tasks..." -ForegroundColor Green
-    Write-WinUtilLog -Component "Updates" -Message "Enabling update related scheduled tasks."
-
-    $Tasks =
-        '\Microsoft\Windows\InstallService\*',
-        '\Microsoft\Windows\UpdateOrchestrator\*',
-        '\Microsoft\Windows\UpdateAssistant\*',
-        '\Microsoft\Windows\WaaSMedic\*',
-        '\Microsoft\Windows\WindowsUpdate\*',
-        '\Microsoft\WindowsUpdate\*'
-
-    foreach ($Task in $Tasks) {
-        Get-ScheduledTask -TaskPath $Task -ErrorAction SilentlyContinue | Enable-ScheduledTask -ErrorAction SilentlyContinue
-    }
-
-
-    Write-Host "Note: You must restart your system in order for all changes to take effect." -ForegroundColor Yellow
-    Write-WinUtilLog -Component "Updates" -Message "Windows Update default workflow completed. Restart required."
-}
-
-function Invoke-WPFUpdatesdisable {
-    <#
-
-    .SYNOPSIS
-        Disables Windows Update
-
-    .NOTES
-        Disabling Windows Update is not recommended. This is only for advanced users who know what they are doing.
-
-    #>
-    param([switch]$Confirmed)
-
-    if (-not $Confirmed -and -not (Confirm-WPFUpdatesdisable)) {
-        return
-    }
-
-    Write-WinUtilLog -Component "Updates" -Message "Disabling Windows Update settings."
-
-    Write-Host "Configuring registry settings..." -ForegroundColor Yellow
-    Write-WinUtilLog -Component "Updates" -Message "Configuring Windows Update registry policy values for disable mode."
-    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Force
-
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoUpdate" -Type DWord -Value 1
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "AUOptions" -Type DWord -Value 1
-
-    New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Force
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Name "DODownloadMode" -Type DWord -Value 0
-
-    foreach ($serviceName in @("BITS", "wuauserv", "UsoSvc")) {
-        Write-Host "Stopping and disabling $serviceName service."
-        Write-WinUtilLog -Component "Updates" -Message "Stopping and disabling $serviceName service."
-        Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
-        Set-Service -Name $serviceName -StartupType Disabled
-    }
-
-    Remove-Item -Path "C:\Windows\SoftwareDistribution\*" -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Host "Cleared SoftwareDistribution folder."
-    Write-WinUtilLog -Component "Updates" -Message "Cleared SoftwareDistribution folder."
-
-    Write-Host "Disabling update related scheduled tasks..." -ForegroundColor Yellow
-    Write-WinUtilLog -Component "Updates" -Message "Disabling update related scheduled tasks."
-
-    $Tasks =
-        '\Microsoft\Windows\InstallService\*',
-        '\Microsoft\Windows\UpdateOrchestrator\*',
-        '\Microsoft\Windows\UpdateAssistant\*',
-        '\Microsoft\Windows\WaaSMedic\*',
-        '\Microsoft\Windows\WindowsUpdate\*',
-        '\Microsoft\WindowsUpdate\*'
-
-    foreach ($Task in $Tasks) {
-        Get-ScheduledTask -TaskPath $Task -ErrorAction SilentlyContinue | Disable-ScheduledTask -ErrorAction SilentlyContinue
-    }
-
-
-    Write-Host "Note: You must restart your system in order for all changes to take effect." -ForegroundColor Yellow
-    Write-WinUtilLog -Component "Updates" -Message "Windows Update disable workflow completed. Restart required."
-}
-
-function Confirm-WPFUpdatesdisable {
-    $confirmation = Show-WinUtilMessage `
-        -Message "تعطيل Windows Update يوقف خدمات التحديث ويعطّل المهام المجدولة ويمسح ملفات التحديث المنزّلة. لن تُثبَّت التحديثات الأمنية حتى تستعيد الإعدادات الافتراضية. هل تريد المتابعة؟" `
-        -Title "تعطيل Windows Update؟" `
-        -Button "YesNo" `
-        -Icon "Warning"
-
-    if ($confirmation -ne "Yes") {
-        Write-WinUtilLog -Component "Updates" -Message "Windows Update disable workflow cancelled."
-        return $false
-    }
-    return $true
-}
-
-function Invoke-WPFUpdatessecurity {
-    <#
-
-    .SYNOPSIS
-        Sets Windows Update to recommended settings
-
-    .DESCRIPTION
-        1. Disables driver offering through Windows Update
-        2. Defers feature updates for 365 days
-        3. Defers quality updates for 4 days
-        4. Configures automatic updates to notify when downloaded updates are ready to install
-
-    #>
-
-    Write-Host "Disabling driver offering through Windows Update..."
-    Write-WinUtilLog -Component "Updates" -Message "Applying recommended Windows Update settings."
-    Write-WinUtilLog -Component "Updates" -Message "Disabling driver offering through Windows Update."
-
-    $windowsUpdatePolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
-    $automaticUpdatePolicyPath = Join-Path $windowsUpdatePolicyPath "AU"
-
-    Write-Host "Restoring Windows Update availability..."
-    Write-WinUtilLog -Component "Updates" -Message "Restoring Windows Update services and scheduled tasks before applying recommended settings."
-
-    Remove-ItemProperty -Path $automaticUpdatePolicyPath -Name "NoAutoUpdate" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config" -Name "DODownloadMode" -ErrorAction SilentlyContinue
-
-    Set-Service -Name BITS -StartupType Manual
-    Set-Service -Name wuauserv -StartupType Manual
-    Set-Service -Name UsoSvc -StartupType Automatic
-    Start-Service -Name UsoSvc
-
-    $Tasks =
-        '\Microsoft\Windows\InstallService\*',
-        '\Microsoft\Windows\UpdateOrchestrator\*',
-        '\Microsoft\Windows\UpdateAssistant\*',
-        '\Microsoft\Windows\WaaSMedic\*',
-        '\Microsoft\Windows\WindowsUpdate\*',
-        '\Microsoft\WindowsUpdate\*'
-
-    foreach ($Task in $Tasks) {
-        Get-ScheduledTask -TaskPath $Task -ErrorAction SilentlyContinue | Enable-ScheduledTask -ErrorAction SilentlyContinue
-    }
-
-    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Device Metadata" -Force
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Device Metadata" -Name "PreventDeviceMetadataFromNetwork" -Type DWord -Value 1
-
-    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Force
-
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DontPromptForWindowsUpdate" -Type DWord -Value 1
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DontSearchWindowsUpdate" -Type DWord -Value 1
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DriverSearching" -Name "DriverUpdateWizardWuSearchEnabled" -Type DWord -Value 0
-
-    New-Item -Path $windowsUpdatePolicyPath -Force
-    Set-ItemProperty -Path $windowsUpdatePolicyPath -Name "ExcludeWUDriversInQualityUpdate" -Type DWord -Value 1
-
-    Write-Host "Deferring feature updates by 365 days and quality updates by 4 days..."
-    Write-WinUtilLog -Component "Updates" -Message "Deferring feature updates by 365 days and quality updates by 4 days."
-
-    Set-ItemProperty -Path $windowsUpdatePolicyPath -Name "DeferFeatureUpdates" -Type DWord -Value 1
-    Set-ItemProperty -Path $windowsUpdatePolicyPath -Name "DeferFeatureUpdatesPeriodInDays" -Type DWord -Value 365
-    Set-ItemProperty -Path $windowsUpdatePolicyPath -Name "DeferQualityUpdates" -Type DWord -Value 1
-    Set-ItemProperty -Path $windowsUpdatePolicyPath -Name "DeferQualityUpdatesPeriodInDays" -Type DWord -Value 4
-
-    $legacySettingsPath = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
-    foreach ($legacyValue in @("BranchReadinessLevel", "DeferFeatureUpdatesPeriodInDays", "DeferQualityUpdatesPeriodInDays")) {
-        Remove-ItemProperty -Path $legacySettingsPath -Name $legacyValue -ErrorAction SilentlyContinue
-    }
-
-    Write-Host "Configuring automatic updates to download and notify before installation..."
-    Write-WinUtilLog -Component "Updates" -Message "Configuring automatic updates to download and notify before installation."
-
-    New-Item -Path $automaticUpdatePolicyPath -Force
-
-    # Remove the previous scheduled-install reboot policy when switching to download-and-notify.
-    Remove-ItemProperty -Path $automaticUpdatePolicyPath -Name "NoAutoRebootWithLoggedOnUsers" -ErrorAction SilentlyContinue
-
-    # AUOptions 3 downloads updates and notifies before installation; it does not control restarts.
-    Set-ItemProperty -Path $automaticUpdatePolicyPath -Name "AUOptions" -Type DWord -Value 3
-    Set-ItemProperty -Path $automaticUpdatePolicyPath -Name "AUPowerManagement" -Type DWord -Value 0
-
-    Write-WinUtilLog -Component "Updates" -Message "Recommended Windows Update settings workflow completed."
 }
 
 $sync.configs.applications = @'
