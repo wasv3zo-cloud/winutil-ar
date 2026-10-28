@@ -128,6 +128,53 @@ def tweak_changes(t):
     return rows
 
 
+SVC_AR = {"Disabled": "معطّلة", "Manual": "يدوي", "Automatic": "تلقائي",
+          "AutomaticDelayedStart": "تلقائي متأخر", "Boot": "عند الإقلاع", "System": "النظام"}
+SVC_NAME_AR = {"DiagTrack": "تجارب المستخدم المتصلة والقياس عن بُعد", "WerSvc": "الإبلاغ عن أخطاء ويندوز",
+               "lfsvc": "تحديد الموقع الجغرافي", "CscService": "الملفات غير المتصلة", "MapsBroker": "مدير الخرائط المنزّلة",
+               "StorSvc": "خدمة التخزين", "SharedAccess": "مشاركة اتصال الإنترنت", "OneSyncSvc": "مزامنة البيانات"}
+# شرح مكتوب يدويًا لما تفعله أوامر PowerShell في كل تحسين (عدّله من هذا الملف)
+EXPLAIN = json.loads((Path(__file__).with_name("tweak_explain.json")).read_text(encoding="utf-8"))
+
+
+def _script(lines):
+    """يجمع أسطر InvokeScript/UndoScript في نص واحد بلا مسافات زائدة في أوله."""
+    if not lines:
+        return ""
+    text = "\n".join(lines) if isinstance(lines, list) else str(lines)
+    rows = text.replace("\r", "").split("\n")
+    while rows and not rows[0].strip():
+        rows.pop(0)
+    while rows and not rows[-1].strip():
+        rows.pop()
+    pad = min((len(r) - len(r.lstrip()) for r in rows if r.strip()), default=0)
+    return "\n".join(r[pad:] for r in rows)
+
+
+def tweak_details(t, key=""):
+    """شرح مفصّل لنافذة «؟» في منشئ الإعداد: كل تغيير بجملة عربية + الأوامر كما هي."""
+    steps = []
+    for r in t.get("registry", []) or []:
+        path = r.get("Path", "")
+        scope = "لحسابك أنت فقط" if path.upper().startswith("HKCU") else "لكل مستخدمي الجهاز"
+        old = str(r.get("OriginalValue", ""))
+        old_ar = "لم تكن موجودة، وتُحذف عند التراجع" if old == "<RemoveEntry>" else f"كانت {old}، وتعود إليها عند التراجع"
+        value = str(r.get("Value", ""))
+        if value == "<RemoveEntry>":
+            text = f"القيمة «{r.get('Name','')}» تُحذف إن وُجدت ({scope})."
+        else:
+            text = f"القيمة «{r.get('Name','')}» تُضبط على {value} ({scope}). {old_ar}."
+        steps.append({"k": "سجل", "t": text, "p": path})
+    for sv in t.get("service", []) or []:
+        new = SVC_AR.get(sv.get("StartupType", ""), sv.get("StartupType", ""))
+        old = SVC_AR.get(sv.get("OriginalType", ""), sv.get("OriginalType", ""))
+        name = sv.get("Name", "")
+        label = f"{SVC_NAME_AR[name]} ({name})" if name in SVC_NAME_AR else name
+        steps.append({"k": "خدمة", "t": f"خدمة «{label}» يصبح تشغيلها: {new} (كان: {old}).", "p": ""})
+    return {"steps": steps, "run": _script(t.get("InvokeScript")), "undo": _script(t.get("UndoScript")),
+            **EXPLAIN.get(key, {})}
+
+
 def build_tweaks(out, tweaks, cats, presets):
     in_preset = {}
     for name, keys in presets.items():
@@ -147,6 +194,7 @@ def build_tweaks(out, tweaks, cats, presets):
             "toggle": t.get("Type") == "Toggle", "undo": bool(t.get("UndoScript") or t.get("registry") or t.get("service")),
             "presets": [PRESET_AR.get(p, p) for p in in_preset.get(key, []) if p in PRESET_AR],
             "changes": tweak_changes(t), "script": bool(t.get("InvokeScript")),
+            "details": tweak_details(t, key),
         })
 
     # صفحة لكل تحسين
@@ -162,7 +210,7 @@ def build_tweaks(out, tweaks, cats, presets):
       <div class="table-wrap mt-s"><table class="table"><thead><tr><th>النوع</th><th>المكان</th><th>القيمة الجديدة</th><th>القيمة الأصلية</th></tr></thead><tbody>{rows}</tbody></table></div>"""
         if it["script"]:
             changes += '<p class="muted small mt-s">ويشغّل أيضًا أوامر PowerShell، تجدها كاملة في <a href="' + REPO_URL + '/blob/main/config/tweaks.json" target="_blank" rel="noopener">ملف التحسينات</a>.</p>'
-        undo = ("يمكنك التراجع عنه من الأداة: حدّده ثم اضغط «التراجع عن التحسينات المحددة»." if it["undo"] and not it["toggle"]
+        undo = it["undoText"] = ("يمكنك التراجع عنه من الأداة: حدّده ثم اضغط «التراجع عن التحسينات المحددة»." if it["undo"] and not it["toggle"]
                 else "أطفئ المفتاح في الأداة ليعود كما كان." if it["toggle"] else "لا يوجد تراجع تلقائي؛ استخدم نقطة استعادة.")
         body = hero(['<a href="../../">الرئيسية</a>', '<a href="../">مكتبة التحسينات</a>', E(it["cat"])], E(it["title"]), E(it["desc"]) or "&nbsp;") + f"""
   <section class="section section--tight" style="padding-top:0">
@@ -289,6 +337,11 @@ def build_data(out, winutil, tweaks_items, app_items, presets):
         [{k: a[k] for k in ("key", "id", "name", "cat", "foss")} for a in app_items], ensure_ascii=False), encoding="utf-8")
     (data / "tweaks.json").write_text(json.dumps(
         [{"id": t["key"], "slug": t["slug"], "title": t["title"], "cat": t["cat"], "risk": t["risk"], "toggle": t["toggle"]} for t in tweaks_items],
+        ensure_ascii=False), encoding="utf-8")
+    # تفاصيل نافذة «؟» في منشئ الإعداد: ملف مستقل يُحمَّل عند أول ضغطة فقط
+    (data / "tweak-details.json").write_text(json.dumps(
+        {t["key"]: {"desc": t["desc"], "risk": t["risk"], "riskText": t["riskText"], "presets": t["presets"],
+                    "undoText": t.get("undoText", ""), **t["details"]} for t in tweaks_items},
         ensure_ascii=False), encoding="utf-8")
     (data / "presets.json").write_text(json.dumps({k: v for k, v in presets.items() if k in PRESET_AR}, ensure_ascii=False), encoding="utf-8")
 
