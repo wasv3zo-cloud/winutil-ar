@@ -60,9 +60,68 @@
         <div class="pick-grid pick-grid--wide">${items.map((t) => `
           <label class="pick${picked.has(t.id) ? ' on' : ''}"><input type="checkbox" value="${esc(t.id)}"${picked.has(t.id) ? ' checked' : ''}>
             <span>${esc(t.title)}</span><span class="badge-risk ${esc(t.risk)}"></span>
-            <a href="${ROOT}tweaks/${esc(t.slug)}/" target="_blank" class="pick__info" title="ماذا يفعل؟">؟</a></label>`).join('')}
+            <button type="button" class="pick__info" data-info="${esc(t.id)}" title="ماذا يفعل بالضبط؟" aria-label="ماذا يفعل «${esc(t.title)}» بالضبط؟">؟</button></label>`).join('')}
         </div></div>`).join('');
   }
+
+  /* ---------- 3ب. نافذة «؟» ----------
+     تشرح التحسين بالتفصيل: ماذا يفعل، وكل تغيير في السجل والخدمات، والأوامر كما هي، والتراجع.
+     البيانات في assets/data/tweak-details.json (يولّدها build_site.py)، وتُحمَّل عند أول ضغطة فقط. */
+  let details = null;
+  const getDetails = async () => details || (details = await fetch(ROOT + 'assets/data/tweak-details.json').then((r) => r.json()));
+
+  const dlg = document.createElement('dialog');
+  dlg.className = 'info-dlg';
+  dlg.setAttribute('dir', 'rtl');
+  document.body.appendChild(dlg);
+  dlg.addEventListener('click', (e) => {
+    if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();   // الخلفية أو زر الإغلاق
+    const sel = e.target.closest('[data-select]'); if (!sel) return;
+    const id = sel.dataset.select, on = !picked.has(id);
+    on ? picked.add(id) : picked.delete(id);
+    $$(`.pick input[value="${id}"]`).forEach((b) => { b.checked = on; b.parentElement.classList.toggle('on', on); });
+    update(); dlg.close();
+    toast(on ? 'أُضيف التحسين إلى إعدادك' : 'أُزيل التحسين من إعدادك');
+  });
+
+  const codeBox = (title, code) => code ? `<details class="info-dlg__code"><summary>${title}</summary><pre dir="ltr"><code>${esc(code)}</code></pre></details>` : '';
+
+  async function openInfo(id) {
+    const t = tweaks.find((x) => x.id === id) || {};
+    dlg.innerHTML = '<p class="muted">جارٍ التحميل…</p>'; dlg.showModal();
+    let d;
+    try { d = (await getDetails())[id]; } catch (e) { d = null; }
+    if (!d) { dlg.innerHTML = '<p class="muted">تعذّر تحميل الشرح. حدّث الصفحة وحاول مجددًا.</p><button class="btn btn--ghost btn--sm" data-close>إغلاق</button>'; return; }
+    const steps = d.steps || [];
+    dlg.innerHTML = `
+      <header class="info-dlg__head">
+        <div><h2>${esc(t.title || id)}</h2><span class="badge-risk ${esc(d.risk)}">${esc(d.riskText)}</span>
+          ${(d.presets || []).map((p) => `<span class="tag">ضمن «${esc(p)}»</span>`).join('')}</div>
+        <button type="button" class="info-dlg__x" data-close aria-label="إغلاق">×</button>
+      </header>
+      <div class="info-dlg__body">
+        ${d.desc ? `<p class="info-dlg__lead">${esc(d.desc)}</p>` : ''}
+        ${d.what ? `<h3>ماذا يفعل بالضبط؟</h3><p>${esc(d.what)}</p>` : ''}
+        ${steps.length ? `<h3>التغييرات في جهازك (${steps.length})</h3><ol class="info-dlg__steps">${steps.map((x) => `
+          <li><span class="tag">${esc(x.k)}</span> ${esc(x.t)}${x.p ? `<code dir="ltr">${esc(x.p)}</code>` : ''}</li>`).join('')}</ol>` : ''}
+        ${d.warn ? `<div class="callout callout--warn"><b>انتبه:</b> ${esc(d.warn)}</div>` : ''}
+        ${codeBox('أوامر PowerShell التي ينفّذها', d.run)}
+        <h3>التراجع</h3><p>${esc(d.undoText)}</p>
+        ${codeBox('أوامر التراجع', d.undo)}
+      </div>
+      <footer class="info-dlg__foot">
+        <button type="button" class="btn btn--primary btn--sm" data-select="${esc(id)}">${picked.has(id) ? 'أزِله من إعدادي' : 'أضِفه إلى إعدادي'}</button>
+        <a class="btn btn--ghost btn--sm" href="${ROOT}tweaks/${esc(t.slug)}/" target="_blank" rel="noopener">صفحته الكاملة</a>
+      </footer>`;
+    dlg.querySelector('.info-dlg__x').focus();
+  }
+
+  // زر «؟» داخل بطاقة الاختيار: يفتح النافذة ولا يغيّر الخانة
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('.pick__info'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    openInfo(b.dataset.info);
+  }, true);
 
   // تحديد/إلغاء أي خانة (تفويض حدث واحد لكل القوائم)
   document.addEventListener('change', (e) => {
