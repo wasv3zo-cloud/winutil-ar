@@ -100,10 +100,12 @@
         <button type="button" class="info-dlg__x" data-close aria-label="إغلاق">×</button>
       </header>
       <div class="info-dlg__body">
-        ${d.desc ? `<p class="info-dlg__lead">${esc(d.desc)}</p>` : ''}
-        ${d.what ? `<h3>ماذا يفعل بالضبط؟</h3><p>${esc(d.what)}</p>` : ''}
-        ${steps.length ? `<h3>التغييرات في جهازك (${steps.length})</h3><ol class="info-dlg__steps">${steps.map((x) => `
-          <li><span class="tag">${esc(x.k)}</span> ${esc(x.t)}${x.p ? `<code dir="ltr">${esc(x.p)}</code>` : ''}</li>`).join('')}</ol>` : ''}
+        <h3>ماذا يفعل بالضبط؟</h3>
+        <p>${esc(d.what || d.desc || 'لا يوجد شرح لهذا التحسين بعد.')}</p>
+        ${d.what && d.desc ? `<p class="info-dlg__lead">${esc(d.desc)}</p>` : ''}
+        ${steps.length ? `<details class="info-dlg__changes"><summary><span>عرض كل التغييرات في جهازك</span><b>${steps.length}</b></summary>
+          <ol class="info-dlg__steps">${steps.map((x) => `
+          <li><span class="tag">${esc(x.k)}</span> ${esc(x.t)}${x.p ? `<code dir="ltr">${esc(x.p)}</code>` : ''}</li>`).join('')}</ol></details>` : ''}
         ${d.warn ? `<div class="callout callout--warn"><b>انتبه:</b> ${esc(d.warn)}</div>` : ''}
         ${codeBox('أوامر PowerShell التي ينفّذها', d.run)}
         <h3>التراجع</h3><p>${esc(d.undoText)}</p>
