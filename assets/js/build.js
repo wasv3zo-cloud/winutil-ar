@@ -202,16 +202,22 @@
   /* ---------- 5. المخرجات ---------- */
   const configJson = () => JSON.stringify([...picked], null, 2);
 
-  // نفس صيغة الأمر الذي تنسخه الأداة عند «تصدير» الإعداد
-  const command = () =>
-    `iex "& { $(${LOADER}) } -Config '$env:USERPROFILE\\Downloads\\${CONFIG_NAME}'"`;
+  // الأمر يحمل الإعداد بداخله: يكتبه في ملف مؤقت ثم يشغّل الأداة به (-Config)،
+  // فلا يعتمد على ملف في «التنزيلات» قد يحفظه المتصفح باسم أو مكان مختلف.
+  // المفاتيح حروف وأرقام فقط، فلا يمكن أن تكسر النص المقتبس.
+  const command = () => {
+    const keys = [...picked].filter((k) => /^[A-Za-z0-9_]+$/.test(k));
+    const json = JSON.stringify(keys);
+    return `$c = "$env:TEMP\\${CONFIG_NAME}"; '${json}' | Out-File $c -Encoding ascii; ` +
+      `iex "& { $(${LOADER}) } -Config '$c'"`;
+  };
 
   $('#dlBtn').addEventListener('click', () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([configJson()], { type: 'application/json' }));
     a.download = CONFIG_NAME; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    toast('حُمِّل الملف — الآن انسخ أمر التشغيل');
+    toast('حُمِّل ملف الإعداد');
   });
   $('#cmdBtn').addEventListener('click', async () => { await copy(command()); toast('نُسخ الأمر — الصقه في PowerShell كمسؤول'); });
   $('#shareBtn').addEventListener('click', async () => { await copy(location.href); toast('نُسخ رابط الإعداد'); });
