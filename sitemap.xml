@@ -72,21 +72,6 @@
   <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/tweaks/taskview/</loc><lastmod>2026-10-28</lastmod></url>
   <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/tweaks/gamemode/</loc><lastmod>2026-10-28</lastmod></url>
   <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/tweaks/longpaths/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/brave/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/chrome/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/chromium/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/edge/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/firefox/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/firefoxesr/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/floorp/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/helium/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/librewolf/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/mullvadbrowser/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/tor/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/ungoogled/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/vivaldi/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/waterfox/</loc><lastmod>2026-10-28</lastmod></url>
-  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/ZenBrowser/</loc><lastmod>2026-10-28</lastmod></url>
   <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/advancedip/</loc><lastmod>2026-10-28</lastmod></url>
   <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/angryipscanner/</loc><lastmod>2026-10-28</lastmod></url>
   <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/cinebenchr23/</loc><lastmod>2026-10-28</lastmod></url>
@@ -291,6 +276,21 @@
   <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/viber/</loc><lastmod>2026-10-28</lastmod></url>
   <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/whatsapp/</loc><lastmod>2026-10-28</lastmod></url>
   <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/zoom/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/brave/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/chrome/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/chromium/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/edge/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/firefox/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/firefoxesr/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/floorp/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/helium/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/librewolf/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/mullvadbrowser/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/tor/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/ungoogled/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/vivaldi/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/waterfox/</loc><lastmod>2026-10-28</lastmod></url>
+  <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/ZenBrowser/</loc><lastmod>2026-10-28</lastmod></url>
   <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/adobe/</loc><lastmod>2026-10-28</lastmod></url>
   <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/foxpdfreader/</loc><lastmod>2026-10-28</lastmod></url>
   <url><loc>https://wasv3zo-cloud.github.io/winutil-ar/apps/joplin/</loc><lastmod>2026-10-28</lastmod></url>
