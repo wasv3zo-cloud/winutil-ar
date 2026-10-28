@@ -30,7 +30,6 @@ window.SITE = {
     { label: 'منشئ الإعداد', href: 'build/' },
     { label: 'صمّم نسختك', href: 'customize/' },
     { label: 'الأسئلة', href: 'faq/' },
-    { label: 'من نحن', href: 'about/' }, 
   ],
 
   /* نص أسفل الصفحة */
