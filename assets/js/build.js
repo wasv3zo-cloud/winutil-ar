@@ -41,6 +41,11 @@
   /* ---------- 3. الرسم ---------- */
   const group = (list, by) => list.reduce((g, x) => ((g[x[by]] = g[x[by]] || []).push(x), g), {});
 
+  // أيقونة البرنامج (ينزّلها البناء إلى assets/img/apps/)، وإلا حرفه الأول
+  const appIcon = (a) => a.ic
+    ? `<img class="app-ico" src="${ROOT}assets/img/apps/${esc(a.key)}.png" alt="" loading="lazy" width="20" height="20">`
+    : `<i class="app-ico app-ico--letter" aria-hidden="true">${esc((a.name || '?').charAt(0).toUpperCase())}</i>`;
+
   function renderApps(filter = '') {
     const q = filter.trim().toLowerCase();
     const list = q ? apps.filter((a) => (a.name + ' ' + a.key).toLowerCase().includes(q)) : apps;
@@ -49,7 +54,7 @@
       <div class="pick-group"><h3>${esc(cat)} <span class="muted small">(${items.length})</span></h3>
         <div class="pick-grid">${items.map((a) => `
           <label class="pick${picked.has(a.id) ? ' on' : ''}"><input type="checkbox" value="${esc(a.id)}"${picked.has(a.id) ? ' checked' : ''}>
-            <span>${esc(a.name)}</span>${a.foss ? '<i class="foss" title="مفتوح المصدر"></i>' : ''}</label>`).join('')}
+            ${appIcon(a)}<span>${esc(a.name)}</span>${a.foss ? '<i class="foss" title="مفتوح المصدر"></i>' : ''}</label>`).join('')}
         </div></div>`).join('') || '<p class="muted">لا توجد نتائج.</p>';
   }
 
