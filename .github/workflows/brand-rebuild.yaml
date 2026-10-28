@@ -79,12 +79,15 @@ jobs:
           git fetch origin gh-pages
           git worktree add -B gh-pages ../site origin/gh-pages
 
+          # أيقونات البرامج تُنزَّل مرة واحدة وتُحفظ في الموقع (assets/img/apps)؛ فشلها لا يوقف البناء
+          python3 tools/site/fetch_icons.py --out ../site
+
           # الصفحات المولّدة: التحسينات، البرامج، سجل الإصدارات، البيانات، sitemap
           python3 tools/site/build_site.py --out ../site --winutil winutil.ps1
           if ($LASTEXITCODE -ne 0) { throw "build_site.py failed" }
 
           Set-Location ../site
-          git add -A assets/data tweaks apps changelog sitemap.xml robots.txt
+          git add -A assets/data assets/img/apps tweaks apps changelog sitemap.xml robots.txt
           git diff --cached --quiet
           if ($LASTEXITCODE -ne 0) {
             git commit -m "تحديث الموقع تلقائيًا بعد البناء"

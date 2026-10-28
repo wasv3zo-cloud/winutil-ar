@@ -81,7 +81,7 @@ def page(title, desc, depth, path, body, scripts=""):
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Noto+Kufi+Arabic:wght@600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{root}assets/css/style.css?v=3">
+  <link rel="stylesheet" href="{root}assets/css/style.css?v=5">
   <link rel="stylesheet" href="{root}assets/css/brand.css?v=3">
   <script>try{{if(localStorage.getItem('theme')==='light')document.documentElement.dataset.theme='light'}}catch(e){{}}</script>
 </head>
@@ -251,12 +251,21 @@ def build_tweaks(out, tweaks, cats, presets):
 
 
 # ---------------------------------------------------------------- البرامج
+def app_icon(it, prefix, size=""):
+    """أيقونة البرنامج إن نزّلها fetch_icons.py، وإلا حرفه الأول في دائرة."""
+    cls = "app-ico" + (f" app-ico--{size}" if size else "")
+    if it["icon"]:
+        return f'<img class="{cls}" src="{prefix}assets/img/apps/{E(it["key"])}.png" alt="" loading="lazy" width="64" height="64">'
+    return f'<span class="{cls} app-ico--letter" aria-hidden="true">{E(it["name"][:1].upper())}</span>'
+
+
 def build_apps(out, apps, cats):
     items = []
     for key, a in apps.items():
         items.append({"key": key, "id": "WPFInstall" + key, "name": a.get("content", key), "desc": a.get("description", ""),
                       "cat": cats.get(a.get("category", ""), a.get("category", "")), "foss": bool(a.get("foss")),
-                      "link": a.get("link", ""), "winget": a.get("winget", ""), "choco": a.get("choco", "")})
+                      "link": a.get("link", ""), "winget": a.get("winget", ""), "choco": a.get("choco", ""),
+                      "icon": (out / "assets/img/apps" / f"{key}.png").exists()})
     items.sort(key=lambda x: (x["cat"], x["name"].lower()))
 
     for it in items:
@@ -265,7 +274,7 @@ def build_apps(out, apps, cats):
         body = hero(['<a href="../../">الرئيسية</a>', '<a href="../">البرامج</a>', E(it["cat"])], E(it["name"]), E(it["desc"]) or "&nbsp;") + f"""
   <section class="section section--tight" style="padding-top:0">
     <div class="wrap narrow">
-      <div class="badges">{badges}</div>
+      <div class="badges">{app_icon(it, "../../", "lg")}{badges}</div>
       <h2 class="h3 mt-l">طريقة التثبيت</h2>
       <p class="muted">افتح الأداة ← تبويب <b>التثبيت</b> ← ابحث عن «{E(it["name"])}» وحدّده ← «تثبيت المحدد». يُحمَّل من مصدره الرسمي.</p>
       {f'<div class="table-wrap mt-s"><table class="table"><tbody>{src}</tbody></table></div>' if src else ''}
@@ -279,7 +288,7 @@ def build_apps(out, apps, cats):
         groups.setdefault(it["cat"], []).append(it)
     sections = "".join(
         f'<h2 class="h3 mt-l lib-group">{E(cat)} <span class="muted small">({len(lst)})</span></h2><div class="lib-grid">'
-        + "".join(f'<a class="lib-card" href="{it["key"]}/" data-filter="{E(it["name"] + " " + it["desc"])}"><b>{E(it["name"])}</b><span>{E(it["desc"][:90])}</span></a>' for it in lst)
+        + "".join(f'<a class="lib-card" href="{it["key"]}/" data-filter="{E(it["name"] + " " + it["desc"])}"><b>{app_icon(it, "../")}{E(it["name"])}</b><span>{E(it["desc"][:90])}</span></a>' for it in lst)
         + "</div>" for cat, lst in groups.items())
     body = hero(['<a href="../">الرئيسية</a>', "البرامج"], 'مكتبة <span class="hl">البرامج</span>',
                 f"{len(items)} برنامجًا تثبّتها الأداة من مصادرها الرسمية.") + f"""
@@ -296,6 +305,8 @@ def build_apps(out, apps, cats):
 
 # ---------------------------------------------------------------- سجل الإصدارات
 AUTO_TAG = ' <span class="tag">تلقائي</span>'
+# تعديلات لا تُعرض في السجل (عنوانها يحمل نصًّا لا نريد ظهوره في الموقع)
+HIDDEN_COMMITS = {"fca5acf"}
 
 
 def build_changelog(out):
@@ -308,6 +319,8 @@ def build_changelog(out):
     days = {}
     for line in log.splitlines():
         sha, date, subject, author = (line.split("\x1f") + ["", "", "", ""])[:4]
+        if sha[:7] in HIDDEN_COMMITS:
+            continue
         days.setdefault(date, []).append((sha, subject, author))
     blocks = "".join(
         f'<div class="log-day"><h2 class="h3">{d}</h2><ul>' + "".join(
@@ -334,7 +347,7 @@ def build_data(out, winutil, tweaks_items, app_items, presets):
     (data / "build.json").write_text(json.dumps(build, ensure_ascii=False, indent=2), encoding="utf-8")
 
     (data / "apps.json").write_text(json.dumps(
-        [{k: a[k] for k in ("key", "id", "name", "cat", "foss")} for a in app_items], ensure_ascii=False), encoding="utf-8")
+        [{**{k: a[k] for k in ("key", "id", "name", "cat", "foss")}, "ic": 1 if a["icon"] else 0} for a in app_items], ensure_ascii=False), encoding="utf-8")
     (data / "tweaks.json").write_text(json.dumps(
         [{"id": t["key"], "slug": t["slug"], "title": t["title"], "cat": t["cat"], "risk": t["risk"], "toggle": t["toggle"]} for t in tweaks_items],
         ensure_ascii=False), encoding="utf-8")
