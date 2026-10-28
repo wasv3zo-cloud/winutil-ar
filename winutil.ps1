@@ -3,7 +3,7 @@
     Author         : Chris Titus @christitustech
     Runspace Author: @DeveloperDurp
     GitHub         : https://github.com/ChrisTitusTech
-    Version        : 26.10.25
+    Version        : 26.10.28
 #>
 
 param (
@@ -226,7 +226,7 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 
 # Variable to sync between runspaces
 $sync = [Hashtable]::Synchronized(@{})
-$sync.version = "26.10.25"
+$sync.version = "26.10.28"
 $sync.IsLocalCompile = "false" -eq "true"
 $sync.configs = @{}
 $sync.Buttons = [System.Collections.Generic.List[PSObject]]::new()
@@ -2823,7 +2823,7 @@ C 18.00,14.00 45.00,27.74 45.00,27.74
 "@
           $LogoPath1 = New-Object Windows.Shapes.Path
           $LogoPath1.Data = [Windows.Media.Geometry]::Parse($LogoPathData1)
-          $LogoPath1.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#FB923C")
+          $LogoPath1.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#0567FF")
 
           $LogoPathData2 = @"
 M 107.00,14.00
@@ -2839,7 +2839,7 @@ C 109.01,19.06 108.93,30.37 104.66,34.21
 "@
           $LogoPath2 = New-Object Windows.Shapes.Path
           $LogoPath2.Data = [Windows.Media.Geometry]::Parse($LogoPathData2)
-          $LogoPath2.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#F97316")
+          $LogoPath2.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#22C55E")
 
           $LogoPathData3 = @"
 M 19.00,46.00
@@ -2862,7 +2862,7 @@ C 21.36,47.14 28.67,50.71 30.01,52.63
 "@
           $LogoPath3 = New-Object Windows.Shapes.Path
           $LogoPath3.Data = [Windows.Media.Geometry]::Parse($LogoPathData3)
-          $LogoPath3.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#A8A29E")
+          $LogoPath3.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#A3A4A6")
 
           $canvas.Children.Add($LogoPath1) | Out-Null
           $canvas.Children.Add($LogoPath2) | Out-Null
@@ -15639,45 +15639,45 @@ $sync.configs.themes = @'
     "BorderOpacity": "0.25"
   },
   "Dark": {
-    "AppInstallUnselectedColor": "#1C130C",
-    "AppInstallHighlightedColor": "#3D210E",
-    "AppInstallSelectedColor": "#5E300F",
-    "ComboBoxForegroundColor": "#FBEFE4",
-    "ComboBoxBackgroundColor": "#2D1E13",
-    "LabelboxForegroundColor": "#F97316",
-    "MainForegroundColor": "#FBEFE4",
-    "MainBackgroundColor": "#1C130C",
-    "LabelBackgroundColor": "#1C130C",
-    "LinkForegroundColor": "#FDBA74",
-    "LinkHoverForegroundColor": "#FBEFE4",
-    "ScrollBarBackgroundColor": "#371F0D",
-    "ScrollBarHoverColor": "#5E300F",
-    "ScrollBarDraggingColor": "#964812",
-    "ProgressBarForegroundColor": "#F97316",
+    "AppInstallUnselectedColor": "#0F1F17",
+    "AppInstallHighlightedColor": "#123822",
+    "AppInstallSelectedColor": "#15512C",
+    "ComboBoxForegroundColor": "#E8F5EC",
+    "ComboBoxBackgroundColor": "#163326",
+    "LabelboxForegroundColor": "#22C55E",
+    "MainForegroundColor": "#E8F5EC",
+    "MainBackgroundColor": "#0F1F17",
+    "LabelBackgroundColor": "#0F1F17",
+    "LinkForegroundColor": "#86EFAC",
+    "LinkHoverForegroundColor": "#E8F5EC",
+    "ScrollBarBackgroundColor": "#113320",
+    "ScrollBarHoverColor": "#15512C",
+    "ScrollBarDraggingColor": "#197A3E",
+    "ProgressBarForegroundColor": "#22C55E",
     "ProgressBarErrorColor": "#FF6B6B",
     "ProgressBarWarningColor": "#FFC83D",
     "ProgressBarBackgroundColor": "Transparent",
-    "ButtonInstallBackgroundColor": "#9A3412",
-    "ButtonTweaksBackgroundColor": "#C2410C",
-    "ButtonConfigBackgroundColor": "#B45309",
-    "ButtonUpdatesBackgroundColor": "#A16207",
-    "ButtonWin11ISOBackgroundColor": "#7C2D12",
-    "ButtonAppxBackgroundColor": "#7C2D12",
-    "ButtonInstallForegroundColor": "#FFF7ED",
-    "ButtonTweaksForegroundColor": "#FFF7ED",
-    "ButtonConfigForegroundColor": "#FFF7ED",
-    "ButtonUpdatesForegroundColor": "#FFF7ED",
-    "ButtonWin11ISOForegroundColor": "#FFF7ED",
-    "ButtonAppxForegroundColor": "#FFF7ED",
-    "ButtonBackgroundColor": "#2D1E13",
-    "ButtonBackgroundPressedColor": "#FBEFE4",
-    "ButtonBackgroundMouseoverColor": "#6A3814",
-    "ButtonBackgroundSelectedColor": "#A14D12",
-    "ButtonForegroundColor": "#FBEFE4",
-    "ToggleButtonOnColor": "#F97316",
-    "ToggleButtonOffColor": "#5F554D",
-    "ToolTipBackgroundColor": "#2D1E13",
-    "BorderColor": "#4A3020",
+    "ButtonInstallBackgroundColor": "#14532D",
+    "ButtonTweaksBackgroundColor": "#166534",
+    "ButtonConfigBackgroundColor": "#15803D",
+    "ButtonUpdatesBackgroundColor": "#16A34A",
+    "ButtonWin11ISOBackgroundColor": "#1F7A4D",
+    "ButtonAppxBackgroundColor": "#1F7A4D",
+    "ButtonInstallForegroundColor": "#F7F7F7",
+    "ButtonTweaksForegroundColor": "#F7F7F7",
+    "ButtonConfigForegroundColor": "#F7F7F7",
+    "ButtonUpdatesForegroundColor": "#F7F7F7",
+    "ButtonWin11ISOForegroundColor": "#F7F7F7",
+    "ButtonAppxForegroundColor": "#F7F7F7",
+    "ButtonBackgroundColor": "#163326",
+    "ButtonBackgroundPressedColor": "#E8F5EC",
+    "ButtonBackgroundMouseoverColor": "#1A5F37",
+    "ButtonBackgroundSelectedColor": "#1A8342",
+    "ButtonForegroundColor": "#E8F5EC",
+    "ToggleButtonOnColor": "#22C55E",
+    "ToggleButtonOffColor": "#505F57",
+    "ToolTipBackgroundColor": "#163326",
+    "BorderColor": "#2A5240",
     "BorderOpacity": "0.4"
   }
 }
