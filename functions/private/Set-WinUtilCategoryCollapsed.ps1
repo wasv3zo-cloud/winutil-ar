@@ -1,4 +1,4 @@
-function Set-WinUtilCategoryCollapsed {
+﻿function Set-WinUtilCategoryCollapsed {
     <#
         .SYNOPSIS
             Shows or hides the entries under a collapsible Tweaks category header

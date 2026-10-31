@@ -1,4 +1,4 @@
-function Get-WinUtilCategoryRisk {
+﻿function Get-WinUtilCategoryRisk {
     <#
         .SYNOPSIS
             The risk badge shown next to a Tweaks category header: its Arabic text and colour

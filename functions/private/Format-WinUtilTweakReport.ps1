@@ -1,4 +1,4 @@
-function Format-WinUtilTweakReport {
+﻿function Format-WinUtilTweakReport {
     <#
         .SYNOPSIS
             Builds the Arabic summary shown when the selected tweaks finish

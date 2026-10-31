@@ -1,4 +1,4 @@
-function Update-WinUtilTweakCount {
+﻿function Update-WinUtilTweakCount {
     <#
         .SYNOPSIS
             Shows how many tweaks the Apply button will run, next to it in the Tweaks tab

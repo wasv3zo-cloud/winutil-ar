@@ -1,4 +1,4 @@
-function Get-WinUtilCategoryDisplayName {
+﻿function Get-WinUtilCategoryDisplayName {
     <#
     .SYNOPSIS
         Returns the Arabic display name for a config category.

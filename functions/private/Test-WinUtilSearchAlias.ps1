@@ -1,4 +1,4 @@
-function Test-WinUtilSearchAlias {
+﻿function Test-WinUtilSearchAlias {
     <#
         .SYNOPSIS
             Whether an Arabic search text names the given app, e.g. "كروم" for Chrome
